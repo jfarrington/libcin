@@ -53,16 +53,20 @@ int main(int argc, char *argv[]){
     exit(1);
   }
 
+  if(!net_set_packet_filter(fd)){
+    perror("unable to set packet filtering");
+    exit(1);
+  }
+
   if(eth_interface){
     if(!net_set_promisc(fd, eth_interface, TRUE)){
       perror("unable to set interface to promisc mode");
       exit(1);
     }
-  }
-
-  if(!net_set_packet_filter(fd)){
-    perror("unable to set packet filtering");
-    exit(1);
+    if(!net_bind_to_interface(fd, eth_interface)){
+      perror("unable to bine to interface");
+      exit(1);
+    }
   }
 
   data = malloc(length * sizeof(unsigned char));
@@ -75,10 +79,10 @@ int main(int argc, char *argv[]){
   while((length - recvd) > CIN_MAX_MTU){
     byte_count = recvfrom(fd, buf, sizeof(buf), 0, NULL, NULL);
     if(byte_count != -1) {
-      printf("%d\n", byte_count-42);
-      memcpy(databuf, buf + 42, byte_count - 42);
-      databuf+=(byte_count-42);
-      recvd+=(byte_count-42);
+      byte_count -= 42;
+      memcpy(databuf, buf + 42, byte_count);
+      databuf+=(byte_count);
+      recvd+=(byte_count);
     }
   }
 

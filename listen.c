@@ -17,6 +17,7 @@ int net_set_promisc(int fd, const char* iface, int val){
 
   struct ifreq ethreq;
 
+  memset(&ethreq, 0, sizeof(ethreq));
   strncpy(ethreq.ifr_name, iface, IFNAMSIZ);
   if (ioctl(fd,SIOCGIFFLAGS,&ethreq) == -1) {
     return FALSE;
@@ -31,7 +32,28 @@ int net_set_promisc(int fd, const char* iface, int val){
   if (ioctl(fd,SIOCSIFFLAGS,&ethreq) == -1) {
     return FALSE;
   }
-  
+
+  return TRUE;
+}
+
+int net_bind_to_interface(int fd, const char* iface){
+  struct sockaddr_ll sll;
+  struct ifreq ethreq;
+
+  memset(&ethreq, 0, sizeof(ethreq));
+  strncpy(ethreq.ifr_name, iface, IFNAMSIZ);
+
+  if (ioctl(fd, SIOCGIFINDEX, &ethreq) == -1) {
+    return FALSE;
+  }
+
+  sll.sll_family = AF_PACKET; 
+  sll.sll_ifindex = ethreq.ifr_ifindex;
+  sll.sll_protocol = htons(ETH_P_IP);
+  if((bind(fd , (struct sockaddr *)&sll , sizeof(sll))) == -1){
+    return FALSE;
+  }
+
   return TRUE;
 }
 

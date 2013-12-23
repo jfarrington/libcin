@@ -12,6 +12,7 @@
 int net_set_promisc(int fd, const char* iface, int val);
 int net_set_packet_filter(int fd);
 int net_open_socket(int *fd);
+int net_bind_to_interface(int fd, const char* iface);
 
 /* Datastructures */
 
