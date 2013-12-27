@@ -12,5 +12,6 @@ typedef struct {
 void *cin_listen_thread(cin_thread *data);
 void *cin_write_thread(cin_thread *data);
 void *cin_monitor_thread(cin_thread *data);
+void *cin_assembler_thread(cin_thread *data);
 
 #endif

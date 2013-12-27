@@ -34,27 +34,25 @@ int main(int argc, char *argv[]){
   /* For command line processing */
   int c;
 
-  while((c = getopt(argc, argv, "i:o:l:")) != -1){
+  while((c = getopt(argc, argv, "i:o:")) != -1){
     switch(c){
       case 'i':
         eth_interface = optarg;
-        printf("Using interface %s\n", eth_interface);
+        printf("**** Using interface %s\n", eth_interface);
         break;
       case 'o':
         ofile = optarg;
-        printf("Writing to : %s\n", ofile);
-        break;
-      case 'l':
-        length = atoi(optarg) * 1024 * 1024;
-        printf("Reading %ld bytes\n", length);
+        printf("**** Writing to : %s\n", ofile);
         break;
     }
   }
 
+  /*
   if(ofile == NULL){
     perror("You have to specify a filename");
     exit(1);
   }
+  */
 
   if(!net_open_socket(&fd)){
     perror("cannot create socket for cin communications");
@@ -103,19 +101,19 @@ int main(int argc, char *argv[]){
   /* Start threads */
 
   pthread_create(&listener, NULL, (void *)cin_listen_thread, (void *)&thread_data);
-  /* pthread_create(&assembler, NULL, (void *)cin_assembler_thread, (void *)&thread_data);*/
+  pthread_create(&assembler, NULL, (void *)cin_assembler_thread, (void *)&thread_data);
   pthread_create(&writer, NULL, (void *)cin_write_thread, (void *)&thread_data);
   pthread_create(&monitor, NULL, (void *)cin_monitor_thread, (void *)&thread_data);
   pthread_join(listener, NULL);
   pthread_join(writer, NULL);
   pthread_join(monitor, NULL);
-  /* pthread_join(assembler, NULL); */
+  pthread_join(assembler, NULL);
 
   fprintf(stderr, "Bye!\n\n");
   pthread_exit(NULL); 
 }
 
-void *cin_write_thread(cin_thread *data){
+void *cin_assembler_thread(cin_thread *data){
   cin_fifo_element *buffer = NULL;
   int this_frame = 0;
   int last_frame = -1;
@@ -138,7 +136,7 @@ void *cin_write_thread(cin_thread *data){
   char filename[1024];
 
   long int image_size;
-  long int image_height = 1000, image_width = 1152;
+  long int image_height = 964, image_width = 1152;
 
   image_size = image_height * image_width;
 
@@ -223,17 +221,15 @@ void *cin_write_thread(cin_thread *data){
       if((int)(framep - frame) == (2220744 / 2)){
         /* Descramble Image */
 
-        if(descramble_image(ds_frame, frame, image_size, image_height, image_width)){
-          /* Write out image */
-          /*
+        /*if(descramble_image(ds_frame, frame, image_size, image_height, image_width)){
           sprintf(filename, "frame%010d.bin", this_frame);
           fp = fopen(filename, "w");
           if(fp != NULL){
             fwrite(ds_frame, sizeof(uint16_t), image_size, fp);
             fclose(fp);
           }
-          */
-        }
+          
+        }*/
       }
     } else {
       /* Buffer is empty - wait for next packet */
@@ -242,6 +238,12 @@ void *cin_write_thread(cin_thread *data){
       pthread_mutex_unlock(&data->mutex);
     }
   }
+
+  pthread_exit(NULL);
+}
+
+void *cin_write_thread(cin_thread *data){
+
 
   pthread_exit(NULL);
 }
