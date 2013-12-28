@@ -3,9 +3,13 @@
 
 /* Definitions */
 
+#ifndef TRUE
 #define TRUE  1
-#define FALSE 0
+#endif
 
+#ifndef FALSE
+#define FALSE 0
+#endif
 
 #define CIN_MAX_MTU             9000
 #define CIN_SVRPORT             49201
@@ -24,16 +28,13 @@
 /* Datastructures */
 
 typedef struct {
-  unsigned char *data;
-  int size;
-  struct timeval timestamp;
-} cin_packet_fifo;
-
-typedef struct {
-  uint16_t *data;
-  uint16_t number;
-  struct timeval timestamp;
-} cin_frame_fifo;
+  void *data;
+  void *head;
+  void *tail;
+  void *end;
+  long int size;
+  int elem_size;
+} fifo;
 
 typedef struct {
   int fd;
@@ -45,7 +46,39 @@ typedef struct {
   int recv_buffer;
 } cin_fabric_iface;
 
+typedef struct {
+  /* FIFO Elements */
+  fifo packet_fifo;  
+  fifo frame_fifo;
+
+  /* Interface */
+  cin_fabric_iface iface;
+
+  /* Statistics */
+  double framerate;
+
+  /* Thread communications */
+  pthread_mutex_t packet_mutex;
+  pthread_cond_t packet_signal; 
+  pthread_mutex_t frame_mutex;
+  pthread_cond_t frame_signal;
+} cin_thread;
+
+typedef struct {
+  unsigned char *data;
+  int size;
+  struct timeval timestamp;
+} cin_packet_fifo;
+
+typedef struct {
+  uint16_t *data;
+  uint16_t number;
+  struct timeval timestamp;
+} cin_frame_fifo;
+
 /* Templates for functions */
+
+/* UDP Network Functions */
 
 void net_set_default(cin_fabric_iface *iface);
 int net_set_promisc(cin_fabric_iface *iface, int val);
@@ -58,4 +91,25 @@ int net_read(cin_fabric_iface *iface, unsigned char* buffer);
 int net_connect(cin_fabric_iface *iface);
 int net_set_buffers(cin_fabric_iface *iface);
 
+/* FIFO Functions */
+
+void* fifo_get_head(fifo *f);
+void* fifo_get_tail(fifo *f);
+void fifo_advance_head(fifo *f);
+void fifo_advance_tail(fifo *f);
+int fifo_init(fifo *f, int elem_size, long int size);
+long int fifo_used_bytes(fifo *f);
+double fifo_percent_full(fifo *f);
+
+/* Threads for processing stream */
+
+void *cin_listen_thread(cin_thread *data);
+void *cin_write_thread(cin_thread *data);
+void *cin_monitor_thread(cin_thread *data);
+void *cin_assembler_thread(cin_thread *data);
+
+/* Thread Functions */
+
+int cin_initialize_fifo(cin_thread *data, long int packet_size, long int frame_size);
+int cin_start_threads(cin_thread *data);
 #endif

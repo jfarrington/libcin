@@ -7,7 +7,7 @@ int descramble_image(uint16_t *image_out, uint16_t *image_in,
                      uint64_t image_size_pixels, uint64_t image_height, uint64_t image_width){
 
 
-    if(!image_out || !image_in) return;
+    if(!image_out || !image_in) return(0);
 
     uint64_t inOffset;
     uint64_t outOffset;
@@ -239,5 +239,7 @@ int descramble_image(uint16_t *image_out, uint16_t *image_in,
         }           // m or row
 
     }
+
+    return(1);
 }
 
