@@ -9,8 +9,8 @@ OBJS=$(SRCSi:.c=.o)
 
 all: cindump descramble_test
 
-cindump: listen.o cindump.o listen.h bpfilter.h descramble_block.h
-	$(CC) listen.o cindump.o -lpthread -o cindump
+cindump: cindata.o cindump.o cindata.h bpfilter.h descramble_block.h
+	$(CC) cindata.o cindump.o -lpthread -o cindump
 
 descramble_test: descramble_test.o
 	$(CC) descramble_test.o -o descramble_test

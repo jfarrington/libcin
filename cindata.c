@@ -15,8 +15,8 @@
 #include <stdint.h>
 #include <unistd.h>
 
+#include "cindata.h"
 #include "descramble_block.h"
-#include "listen.h"
 #include "bpfilter.h"
 
 /* -----------------------------------------------------------------------------------------
