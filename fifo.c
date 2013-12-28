@@ -14,7 +14,7 @@ int fifo_init(fifo *f, int elem_size, long int size){
   /* set the initial parameters */
   f->head = f->data;
   f->tail = f->data;
-  f->end  = f->data + ((size - 1) * elem_size);
+  f->end  = f->data + ((size - 1) * (long int)elem_size);
   f->size = size;
   f->elem_size = elem_size;
 
@@ -23,8 +23,10 @@ int fifo_init(fifo *f, int elem_size, long int size){
 
   f->head = f->data;
   f->tail = f->data;
-  fprintf(stderr, "==== FIFO initialized with %ld bytes at %p\n", 
-          size * (long int)elem_size, f->data);
+  /*
+  fprintf(stderr, "==== FIFO initialized with %ld bytes (size = %d) at %p ending at %p\n", 
+          size * (long int)elem_size, elem_size, f->data, f->end);
+  */
   return TRUE;
 }
 
@@ -36,6 +38,19 @@ long int fifo_used_bytes(fifo *f){
   }
 }
 
+double fifo_percent_full(fifo *f){
+  long int bytes, percent;
+  if(f->head >= f->tail){
+      bytes = (long int)(f->head - f->tail);
+  } else {
+      bytes = (long int)((f->end - f->head) + f->tail);
+  }
+
+  percent = (float)bytes / (float)(f->elem_size * f->size);
+
+  return percent;
+}
+
 void *fifo_get_head(fifo *f){
   return f->head;
 }
@@ -43,10 +58,10 @@ void *fifo_get_head(fifo *f){
 void fifo_advance_head(fifo *f){
   /* Increment the head pointet */
 
-  f->head += f->elem_size;
-
   if(f->head == f->end){
     f->head = f->data;
+  } else {
+    f->head += f->elem_size;
   }
 }
 

@@ -7,29 +7,27 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <sys/time.h>
 
 #include "fifo.h"
 #include "listen.h"
 #include "cindump.h"
-#include "descramble.h"
+#include "descramble_block.h"
 
 int main(int argc, char *argv[]){
-  int fd;
-
   long int i;
 
   /* Threads */
   pthread_t listener, writer, monitor, assembler;
   cin_thread thread_data;
 
-  FILE *fp;
-
   /* Command line options */
   char *eth_interface = NULL;
   char *ofile = NULL;
-  long int length = 1*1024*1024;
 
-  cin_fifo_element *p;
+  /* FIFO elements */
+  cin_packet_fifo *p;
+  cin_frame_fifo *q;
 
   /* For command line processing */
   int c;
@@ -54,33 +52,23 @@ int main(int argc, char *argv[]){
   }
   */
 
-  if(!net_open_socket(&fd)){
-    perror("cannot create socket for cin communications");
-    exit(1);
-  }
-
-  if(!net_set_packet_filter(fd)){
-    perror("unable to set packet filtering");
-    exit(1);
-  }
+  net_set_default(&thread_data.iface);
 
   if(eth_interface){
-    if(!net_set_promisc(fd, eth_interface, TRUE)){
-      perror("unable to set interface to promisc mode");
-      exit(1);
-    }
-    if(!net_bind_to_interface(fd, eth_interface)){
-      perror("unable to bind to interface");
-      exit(1);
-    }
+    strncpy(thread_data.iface.iface_name, eth_interface, 256);
   }
 
-  if(fifo_init(&thread_data.packet_fifo, sizeof(cin_fifo_element), 1024 * 1024) == FALSE){
+  if(fifo_init(&thread_data.packet_fifo, sizeof(cin_packet_fifo), 200) == FALSE){
     printf("Unable to initialize FIFO\n");
     exit(1);
   }
 
-  p = (cin_fifo_element*)(thread_data.packet_fifo.data);
+  if(fifo_init(&thread_data.frame_fifo, sizeof(cin_frame_fifo), 200) == FALSE){
+    printf("Unable to initialize FIFO\n");
+    exit(1);
+  }
+
+  p = (cin_packet_fifo*)(thread_data.packet_fifo.data);
   for(i=0;i<thread_data.packet_fifo.size;i++){
     p->data = malloc(sizeof(unsigned char) * CIN_MAX_MTU);
     if(p->data == NULL){
@@ -91,12 +79,23 @@ int main(int argc, char *argv[]){
     p++;
   }
 
-  thread_data.socket_fd = fd;
+  q = (cin_frame_fifo*)(thread_data.frame_fifo.data);
+  for(i=0;i<thread_data.frame_fifo.size;i++){
+    q->data = malloc(sizeof(uint16_t) * CIN_FRAME_WIDTH * CIN_FRAME_HEIGHT);
+    if(!q->data){
+      printf("Unable to initialize FIFO\n");
+      exit(1);
+    }
+    q->number = 0;
+    q++;
+  }
 
   /* Setup Mutexes */
 
-  pthread_mutex_init(&thread_data.mutex, NULL);
-  pthread_cond_init(&thread_data.signal, NULL);
+  pthread_mutex_init(&thread_data.packet_mutex, NULL);
+  pthread_mutex_init(&thread_data.frame_mutex, NULL);
+  pthread_cond_init(&thread_data.packet_signal, NULL);
+  pthread_cond_init(&thread_data.frame_signal, NULL);
 
   /* Start threads */
 
@@ -114,7 +113,9 @@ int main(int argc, char *argv[]){
 }
 
 void *cin_assembler_thread(cin_thread *data){
-  cin_fifo_element *buffer = NULL;
+  
+  cin_packet_fifo *buffer = NULL;
+  cin_frame_fifo *frame = NULL;
   int this_frame = 0;
   int last_frame = -1;
   int this_packet = 0;
@@ -122,120 +123,151 @@ void *cin_assembler_thread(cin_thread *data){
   int skipped_packets = -1;
   int next_packet;
 
-  uint16_t *frame;
-  uint16_t *ds_frame;
-  uint16_t *framep;
+  int buffer_len;
+  unsigned char *buffer_p;
 
-  /* used for byteswap */
-  uint16_t *_framep;
-  uint16_t *_bufferp;
+  /* Descramble Map */
 
-  int i;
+  uint32_t *ds_map; 
+  uint32_t *ds_map_p;
 
-  FILE *fp;
-  char filename[1024];
+  long int i;
+  long int byte_count = 0;
 
-  long int image_size;
-  long int image_height = 964, image_width = 1152;
+  struct timeval last_frame_timestamp;
+  struct timeval this_frame_timestamp;
 
-  image_size = image_height * image_width;
+  /* Set descramble map */
+
+  ds_map = (uint32_t*)descramble_map;
+  ds_map_p = ds_map;
 
   /* Allocate memory for an image and a descrambled image */
 
-  frame = malloc(sizeof(uint16_t) * image_size);
-  if(frame == NULL){
-    return NULL;
-  }
-  ds_frame = malloc(sizeof(uint16_t) * image_size);
-  if(ds_frame == NULL){
-    return NULL;
-  }
-
-  /* Use framep as the pointer to where we are in a frame */
-
-  framep = frame;
+  pthread_mutex_lock(&data->frame_mutex);
+  frame = (cin_frame_fifo*)fifo_get_head(&data->frame_fifo);
+  pthread_mutex_unlock(&data->frame_mutex);
 
   while(1){
 
     /* Lock the mutex and get a packet from the fifo */
 
-    pthread_mutex_lock(&data->mutex);
-    buffer = (cin_fifo_element*)fifo_get_tail(&data->packet_fifo);
-    pthread_mutex_unlock(&data->mutex);
+    pthread_mutex_lock(&data->packet_mutex);
+    buffer = (cin_packet_fifo*)fifo_get_tail(&data->packet_fifo);
+    pthread_mutex_unlock(&data->packet_mutex);
 
     if(buffer != NULL){
       /* Start assebleing frame */
 
+      buffer_p = buffer->data;
+      buffer_len = buffer->size - data->iface.header_len - CIN_UDP_DATA_HEADER;
+
+      /* Skip header (defined in interface */
+
+      buffer_p += data->iface.header_len;
+
       /* First byte of frame header is the packet no*/
       /* Bytes 7 and 8 are the frame number */ 
-      this_packet = buffer->data[42];
-      this_frame = (buffer->data[48] << 8) + buffer->data[49];
+      this_packet = *buffer_p;
+      buffer_p++;
+     
+      /* Next lets check the magic number of the packet */
+      if(*((uint32_t *)buffer_p) == CIN_MAGIC_PACKET) {; 
+        buffer_p+=5; 
+        
+        /* Get the frame number from header */
 
-      if(this_frame != last_frame){
-        /* We have a new frame, reset the buffer */
-        framep = frame;
-        last_frame = this_frame;
-        last_packet = -1;
-      }
+        this_frame = (*buffer_p << 8) + *(buffer_p + 1);
+        buffer_p += 2;
 
-      /* Predict the next packet number */
-      next_packet = (last_packet + 1) & 0xFF;
+        if(this_frame != last_frame){
+          /* We have a new frame */
 
-      if(this_packet != next_packet){
-        /* we have skipped packets! */
-        skipped_packets = this_packet - next_packet;
+          /* Lock the mutex and get the next frame buffer */
+          pthread_mutex_lock(&data->frame_mutex);
+          frame = (cin_frame_fifo*)fifo_get_head(&data->frame_fifo);
+          pthread_mutex_unlock(&data->frame_mutex);
+         
+          /* Reset the descramble map pointer */
+          ds_map_p = ds_map;
+         
+          /* Set all the last frame stuff */
+          last_frame = this_frame;
+          last_packet = -1;
+          byte_count = 0;
+          
+          /* The following is used for calculating rates */
+          last_frame_timestamp.tv_sec  = this_frame_timestamp.tv_sec;
+          last_frame_timestamp.tv_usec = this_frame_timestamp.tv_usec;
+          this_frame_timestamp.tv_sec  = buffer->timestamp.tv_sec;
+          this_frame_timestamp.tv_usec = buffer->timestamp.tv_usec; 
 
-        fprintf(stderr, "\nDropped %d packets at %d from frame %d\n\n", 
-                skipped_packets, this_packet, this_frame);
+          data->framerate = this_frame_timestamp.tv_sec - last_frame_timestamp.tv_sec;
+          data->framerate = ((double)(this_frame_timestamp.tv_usec - last_frame_timestamp.tv_usec) * 1e-6);
+          if(data->framerate != 0){
+            data->framerate = 1 / data->framerate;
+          }
+        }
 
-        /* Set this block to zero and advance the frame pointer */
-        memset(framep, 0, 8184 * skipped_packets / 2);
-        framep += (8184 * skipped_packets / 2);
-      }
+        /* Predict the next packet number */
+        next_packet = (last_packet + 1) & 0xFF;
 
-      /* Now copy packet to buffer
-         and swap the endieness */
-      
-      _framep = framep;
-      _bufferp = (uint16_t*)(buffer->data + 50);
+        if(this_packet != next_packet){
+          /* we have skipped packets! */
+          skipped_packets = this_packet - next_packet;
 
-      for(i=0;i<((buffer->size-50)/2);i++){
-        *_framep = (*_bufferp << 8) | (*_bufferp >> 8);
-        _framep++;
-        _bufferp++;
-      }
+          fprintf(stderr, "\nDropped %d packets at %d from frame %d\n\n", 
+                  skipped_packets, this_packet, this_frame);
+
+          /* Set this block to zero and advance the frame pointer */
+          //memset(frame_p, 0, CIN_PACKET_LEN * skipped_packets / 2);
+          for(i=0;i<(CIN_PACKET_LEN * skipped_packets / 2);i++){
+            *(frame->data + *ds_map_p) = 0;
+            ds_map_p++;
+          }
+          byte_count += CIN_PACKET_LEN * skipped_packets;
+        } else {
+          /* Swap endienness of packet and copy to frame */
+          
+          for(i=0;i<(buffer_len / 2);i++){
+            *(frame->data + *ds_map_p) = (*buffer_p << 8) + *(buffer_p + 1);
+            /* Advance descramble map by 1 and buffer by 2 */ 
+            ds_map_p++;
+            buffer_p += 2;
+          }
+          byte_count += buffer_len;
+        }
+      } else { 
+        fprintf(stderr, "\nMallformed Packet Recieved!\n");
+      } /* if CIN_MAGIC_PACKET */
 
       /* Now we are done with the packet, we can advance the fifo */
 
-      pthread_mutex_lock(&data->mutex);
+      pthread_mutex_lock(&data->packet_mutex);
       fifo_advance_tail(&data->packet_fifo);
-      pthread_mutex_unlock(&data->mutex);
+      pthread_mutex_unlock(&data->packet_mutex);
 
-      /* Advance the frame pointer by the packet length */
-      framep += ((buffer->size - 50) / 2);
+      /* Now we can set the last packet to this packet */
+
       last_packet = this_packet;
 
       /* Check for full image */
-      /* NOTE : There has to be a better way to do this! */
 
-      if((int)(framep - frame) == (2220744 / 2)){
-        /* Descramble Image */
-
-        /*if(descramble_image(ds_frame, frame, image_size, image_height, image_width)){
-          sprintf(filename, "frame%010d.bin", this_frame);
-          fp = fopen(filename, "w");
-          if(fp != NULL){
-            fwrite(ds_frame, sizeof(uint16_t), image_size, fp);
-            fclose(fp);
-          }
-          
-        }*/
+      if(byte_count == CIN_FRAME_SIZE){
+        /* Advance the frame fifo and signal that a new frame
+           is avaliable */
+        frame->number = this_frame;
+        pthread_mutex_lock(&data->frame_mutex);
+        fifo_advance_head(&data->frame_fifo);
+        pthread_cond_signal(&data->frame_signal);
+        pthread_mutex_unlock(&data->frame_mutex);
       }
+
     } else {
       /* Buffer is empty - wait for next packet */
-      pthread_mutex_lock(&data->mutex);
-      pthread_cond_wait(&data->signal, &data->mutex);
-      pthread_mutex_unlock(&data->mutex);
+      pthread_mutex_lock(&data->packet_mutex);
+      pthread_cond_wait(&data->packet_signal, &data->packet_mutex);
+      pthread_mutex_unlock(&data->packet_mutex);
     }
   }
 
@@ -243,41 +275,79 @@ void *cin_assembler_thread(cin_thread *data){
 }
 
 void *cin_write_thread(cin_thread *data){
+  FILE *fp;
+  char filename[256];
+  cin_frame_fifo *frame;
 
+  while(1){
+    /* Lock mutex and wait for frame */
+    /* once frame arrives, get the lail from the fifo */
+    /* and save to disk */
+
+    pthread_mutex_lock(&data->frame_mutex);
+    pthread_cond_wait(&data->frame_signal, &data->frame_mutex);
+    frame = (cin_frame_fifo*)fifo_get_tail(&data->frame_fifo);
+    pthread_mutex_unlock(&data->frame_mutex);
+
+    if(frame != NULL){
+      sprintf(filename, "frame%06d.bin", frame->number);
+    
+      fp = fopen(filename, "w");
+      if(fp){
+        fwrite(frame->data, sizeof(uint16_t), 
+               CIN_FRAME_HEIGHT * CIN_FRAME_WIDTH, fp);
+        fclose(fp);
+      } 
+
+      /* Now that file is written, advance the fifo */
+      pthread_mutex_lock(&data->frame_mutex);
+      fifo_advance_tail(&data->frame_fifo);
+      pthread_mutex_unlock(&data->frame_mutex);
+    }
+  }
 
   pthread_exit(NULL);
 }
 
 void *cin_monitor_thread(cin_thread *data){
+  fprintf(stderr, "\n\n");
+
   while(1){
-    fprintf(stderr, "Packet buffer has %12ld elements (head = %p, tail = %p)\r",
-            fifo_used_bytes(&data->packet_fifo),
-            data->packet_fifo.head,
-            data->packet_fifo.tail); 
-    sleep(0.25);
+    fprintf(stderr, "Packet buffer is %9.3f %% full. Spool buffer is %9.3f %% full. Framerate = %6.1f s^-1\r",
+            fifo_percent_full(&data->packet_fifo),
+            fifo_percent_full(&data->frame_fifo),data->framerate);
+    sleep(0.5);
   }
 
   pthread_exit(NULL);
 }
 
 void *cin_listen_thread(cin_thread *data){
-  cin_fifo_element *buffer = NULL;
+  cin_packet_fifo *buffer = NULL;
+
+  /* Open the socket for communications */
+
+  if(!net_connect(&data->iface)){
+    perror("Unable to connect to CIN!");
+    pthread_exit(NULL);
+  }
 
   while(1){
     /* Get the next element in the fifo */
-    pthread_mutex_lock(&data->mutex);
-    buffer = (cin_fifo_element*)fifo_get_head(&data->packet_fifo);
-    pthread_mutex_unlock(&data->mutex);
+    pthread_mutex_lock(&data->packet_mutex);
+    buffer = (cin_packet_fifo*)fifo_get_head(&data->packet_fifo);
+    pthread_mutex_unlock(&data->packet_mutex);
 
-    buffer->size = recvfrom(data->socket_fd, buffer->data, 
-                    sizeof(unsigned char) * CIN_MAX_MTU, 
-                    0, NULL, NULL);
+    buffer->size = net_read(&data->iface, buffer->data);
+    gettimeofday(&buffer->timestamp, NULL);
+
+    //fprintf(stderr, "Buffer size = %d\n", buffer->size);
 
     if (buffer->size > 1024){
-      pthread_mutex_lock(&data->mutex);
+      pthread_mutex_lock(&data->packet_mutex);
       fifo_advance_head(&data->packet_fifo);
-      pthread_cond_signal(&data->signal);
-      pthread_mutex_unlock(&data->mutex);
+      pthread_cond_signal(&data->packet_signal);
+      pthread_mutex_unlock(&data->packet_mutex);
     }
     
   }

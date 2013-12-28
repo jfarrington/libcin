@@ -2,11 +2,21 @@
 #define _CINDUMP_H 1
 
 typedef struct {
+  /* FIFO Elements */
   fifo packet_fifo;  
   fifo frame_fifo;
-  int socket_fd;
-  pthread_mutex_t mutex;
-  pthread_cond_t signal;
+
+  /* Interface */
+  cin_fabric_iface iface;
+
+  /* Statistics */
+  double framerate;
+
+  /* Thread communications */
+  pthread_mutex_t packet_mutex;
+  pthread_cond_t packet_signal; 
+  pthread_mutex_t frame_mutex;
+  pthread_cond_t frame_signal;
 } cin_thread;
 
 void *cin_listen_thread(cin_thread *data);
