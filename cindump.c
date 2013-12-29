@@ -9,42 +9,44 @@
 
 int main(int argc, char *argv[]){
 
-  cin_thread thread_data;
+  cin_thread *thread_data;
 
   /* Command line options */
   char *eth_interface = NULL;
-  char *ofile = NULL;
+  char *odir = NULL;
 
   /* For command line processing */
   int c;
 
-  while((c = getopt(argc, argv, "i:o:")) != -1){
+  while((c = getopt(argc, argv, "i:o:h")) != -1){
     switch(c){
+      case 'h':
+        fprintf(stderr,"cindump : Dump data from CIN\n\n");
+        exit(1);
       case 'i':
         eth_interface = optarg;
         printf("**** Using interface %s\n", eth_interface);
         break;
       case 'o':
-        ofile = optarg;
-        printf("**** Writing to : %s\n", ofile);
+        odir = optarg;
+        printf("**** Writing to directory : %s\n", odir);
         break;
     }
   }
 
-  /*
-  if(ofile == NULL){
-    perror("You have to specify a filename");
-    exit(1);
-  }
-  */
+  thread_data        = malloc(sizeof(cin_thread));
+  thread_data->iface = malloc(sizeof(cin_fabric_iface));
 
-  net_set_default(&thread_data.iface);
+  /* Load network defaults */
+  net_set_default(thread_data->iface);
 
+  /* Set the network interface if supplied */
   if(eth_interface){
-    strncpy(thread_data.iface.iface_name, eth_interface, 256);
+    strncpy(thread_data->iface->iface_name, eth_interface, 256);
   }
 
-  cin_start_threads(&thread_data);
+  /* Start the main routine */
+  cin_start_threads(thread_data);
 
   pthread_exit(NULL);
 }

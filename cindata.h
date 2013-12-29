@@ -34,6 +34,7 @@ typedef struct {
   void *end;
   long int size;
   int elem_size;
+  int full;
 } fifo;
 
 typedef struct {
@@ -48,20 +49,20 @@ typedef struct {
 
 typedef struct {
   /* FIFO Elements */
-  fifo packet_fifo;  
-  fifo frame_fifo;
+  fifo *packet_fifo;  
+  fifo *frame_fifo;
 
   /* Interface */
-  cin_fabric_iface iface;
+  cin_fabric_iface *iface;
 
   /* Statistics */
   double framerate;
 
   /* Thread communications */
-  pthread_mutex_t packet_mutex;
-  pthread_cond_t packet_signal; 
-  pthread_mutex_t frame_mutex;
-  pthread_cond_t frame_signal;
+  pthread_mutex_t *packet_mutex;
+  pthread_cond_t *packet_signal; 
+  pthread_mutex_t *frame_mutex;
+  pthread_cond_t *frame_signal;
 } cin_thread;
 
 typedef struct {
