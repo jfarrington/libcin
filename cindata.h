@@ -19,11 +19,13 @@
 #define CIN_SOCKET_MODE_BFP     2
 #define CIN_UDP_PACKET_HEADER   48
 #define CIN_UDP_DATA_HEADER     8
-#define CIN_MAGIC_PACKET        0xF3F2F1F0
+#define CIN_MAGIC_PACKET        0x0000F4F3F2F1F000
+#define CIN_MAGIC_PACKET_MASK   0x0000FFFFFFFFFF00
 #define CIN_PACKET_LEN          8184
 #define CIN_FRAME_HEIGHT        964
 #define CIN_FRAME_WIDTH         1152
 #define CIN_FRAME_SIZE          2220744
+#define CIN_DROPPED_PACKET_VAL  0x0
 
 /* Datastructures */
 
@@ -57,6 +59,9 @@ typedef struct {
 
   /* Statistics */
   double framerate;
+  unsigned long int dropped_packets;
+  unsigned long int mallformed_packets;
+  uint16_t last_frame;
 
   /* Thread communications */
   pthread_mutex_t *packet_mutex;

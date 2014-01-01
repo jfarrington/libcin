@@ -15,6 +15,8 @@
 #include <stdint.h>
 #include <unistd.h>
 
+#include <tiffio.h>
+
 #include "cindata.h"
 #include "descramble_block.h"
 #include "bpfilter.h"
@@ -72,7 +74,7 @@ void net_set_default(cin_fabric_iface *iface){
   iface->fd = -1;
   iface->svrport = CIN_SVRPORT;
   iface->header_len = 0;
-  iface->recv_buffer = 65535;
+  iface->recv_buffer = 0x3200000;
   strcpy(iface->iface_name, CIN_IFACE_NAME);
   strcpy(iface->svraddr,    CIN_SVRADDR);
 }
@@ -82,8 +84,7 @@ int net_set_buffers(cin_fabric_iface *iface){
   unsigned int size;
   unsigned int size_len;
 
-  
-  size = 0x3FFFFFFF;
+  size = (unsigned int)iface->recv_buffer;
   if(setsockopt(iface->fd, SOL_SOCKET, SO_RCVBUF, &size, sizeof(size)) == -1){
     perror("Unable to set receive buffer :");
   } else {
@@ -91,7 +92,6 @@ int net_set_buffers(cin_fabric_iface *iface){
     if(getsockopt(iface->fd, SOL_SOCKET, SO_RCVBUF, &size, &size_len) == -1){
       perror("Unable to get receive buffer :");
     };
-    fprintf(stderr,"==== Recv Buffer set to %x bytes\n", size);
   }
   return TRUE;
 }
@@ -246,24 +246,29 @@ int fifo_init(fifo *f, int elem_size, long int size){
 }
 
 long int fifo_used_bytes(fifo *f){
+  long int bytes;
+
   if(f->head >= f->tail){
-    return (long int)(f->head - f->tail);  
+    bytes = (long int)(f->head - f->tail);  
   } else {
-    return (long int)((f->end - f->head) + f->tail);
+    bytes = (long int)((f->end - f->tail) + (f->head - f->data));
   }
+
+  if(bytes > (f->size * f->elem_size)){
+    fprintf(stderr, "\n\n\n\n%p.%p,%p,%p\n\n\n\n", f->head, f->tail, f->end, f->data);
+  }
+
+  return bytes;
 }
 
 double fifo_percent_full(fifo *f){
-  long int bytes, percent;
-  if(f->head >= f->tail){
-      bytes = (long int)(f->head - f->tail);
-  } else {
-      bytes = (long int)((f->end - f->head) + f->tail);
-  }
+  long int bytes;
+  double percent;
+  
+  bytes = fifo_used_bytes(f);
+  percent = (double)bytes / (double)(f->elem_size * f->size);
 
-  percent = (float)bytes / (float)(f->elem_size * f->size);
-
-  return percent;
+  return percent * 100.0;
 }
 
 void *fifo_get_head(fifo *f){
@@ -273,9 +278,15 @@ void *fifo_get_head(fifo *f){
 void fifo_advance_head(fifo *f){
   /* Increment the head pointet */
 
+  /* Check if we have hit the end before emptying any data */
+  if((f->head == f->end) && (f->tail == f->data)){
+    f->full = TRUE;
+    return;
+  }
+
   if((f->head + f->elem_size) == f->tail){
     /* FIFO is full. Don't increment */
-    f->full = FALSE;
+    f->full = TRUE;
     return;
   }
 
@@ -334,6 +345,12 @@ int cin_start_threads(cin_thread *data){
     return FALSE;
   } 
 
+  /* Set some defaults */
+
+  data->mallformed_packets = 0;
+  data->dropped_packets = 0;
+  data->framerate = 0;
+
   /* Setup Mutexes */
 
   data->packet_mutex  = malloc(sizeof(pthread_mutex_t));
@@ -369,7 +386,7 @@ int cin_initialize_fifo(cin_thread *data, long int packet_size, long int frame_s
 
   /* Packet FIFO */
 
-  if(fifo_init(data->packet_fifo, sizeof(cin_packet_fifo), 200) == FALSE){
+  if(fifo_init(data->packet_fifo, sizeof(cin_packet_fifo), 20000) == FALSE){
     return FALSE;
   }
 
@@ -396,6 +413,8 @@ int cin_initialize_fifo(cin_thread *data, long int packet_size, long int frame_s
       return FALSE;
     }
     q->number = 0;
+    q->timestamp.tv_sec = 0;
+    q->timestamp.tv_usec = 0;
     q++;
   }
 
@@ -413,15 +432,20 @@ void *cin_assembler_thread(cin_thread *data){
   
   cin_packet_fifo *buffer = NULL;
   cin_frame_fifo *frame = NULL;
-  int this_frame = 0;
-  int last_frame = -1;
-  int this_packet = 0;
-  int last_packet = -1;
-  int skipped_packets = -1;
-  int next_packet;
+  unsigned int this_frame = 0;
+  unsigned int last_frame = -1;
+  unsigned int this_packet = 0;
+  unsigned int last_packet = -1;
+  unsigned int skipped_packets = -1;
+  unsigned int next_packet;
+
+  uint64_t last_packet_header = 0;
+  uint64_t this_packet_header = 0;
 
   int buffer_len;
   unsigned char *buffer_p;
+
+  uint64_t header;
 
   /* Descramble Map */
 
@@ -439,7 +463,7 @@ void *cin_assembler_thread(cin_thread *data){
   ds_map = (uint32_t*)descramble_map;
   ds_map_p = ds_map;
 
-  /* Allocate memory for an image and a descrambled image */
+  /* Get first frame pointer from stack */
 
   pthread_mutex_lock(data->frame_mutex);
   frame = (cin_frame_fifo*)fifo_get_head(data->frame_fifo);
@@ -463,18 +487,19 @@ void *cin_assembler_thread(cin_thread *data){
 
       buffer_p += data->iface->header_len;
 
-      /* First byte of frame header is the packet no*/
-      /* Bytes 7 and 8 are the frame number */ 
-      this_packet = *buffer_p;
-      buffer_p++;
-     
       /* Next lets check the magic number of the packet */
-      if(*((uint32_t *)buffer_p) == CIN_MAGIC_PACKET) {; 
-        buffer_p+=5; 
-        
-        /* Get the frame number from header */
+      header = *((uint64_t *)buffer_p) & CIN_MAGIC_PACKET_MASK; 
 
-        this_frame = (*buffer_p << 8) + *(buffer_p + 1);
+      if(header == CIN_MAGIC_PACKET) {; 
+        
+        /* First byte of frame header is the packet no*/
+        /* Bytes 7 and 8 are the frame number */ 
+    
+        this_packet_header = *(uint64_t*)buffer_p;
+
+        this_packet = *buffer_p; 
+        buffer_p += 6;
+        this_frame  = (*buffer_p << 8) + *(buffer_p + 1);
         buffer_p += 2;
 
         if(this_frame != last_frame){
@@ -511,15 +536,23 @@ void *cin_assembler_thread(cin_thread *data){
 
         if(this_packet != next_packet){
           /* we have skipped packets! */
-          skipped_packets = this_packet - next_packet;
+          if(this_packet > next_packet){
+            skipped_packets = this_packet - next_packet;
+          } else {
+            skipped_packets = (256 - next_packet) + this_packet;
+          }
 
-          fprintf(stderr, "\nDropped %d packets at %d from frame %d\n\n", 
-                  skipped_packets, this_packet, this_frame);
+          /* increment Dropped packet counter */
+          data->dropped_packets += (unsigned long int)skipped_packets;
+          fprintf(stderr, "\n\n\n\n\n %d, %d, %d, %d\n", skipped_packets, last_packet, this_packet, next_packet);
+          fprintf(stderr, "%lx,%lx", last_packet_header, this_packet_header);
+          fprintf(stderr, "\n\n\n\n\n");
 
-          /* Set this block to zero and advance the frame pointer */
-          //memset(frame_p, 0, CIN_PACKET_LEN * skipped_packets / 2);
+
+          /* Write zero values to dropped packet regions */
+          /* NOTE : We could use unused bits to do this better? */
           for(i=0;i<(CIN_PACKET_LEN * skipped_packets / 2);i++){
-            *(frame->data + *ds_map_p) = 0;
+            *(frame->data + *ds_map_p) = CIN_DROPPED_PACKET_VAL;
             ds_map_p++;
           }
           byte_count += CIN_PACKET_LEN * skipped_packets;
@@ -535,8 +568,10 @@ void *cin_assembler_thread(cin_thread *data){
           byte_count += buffer_len;
         }
       } else { 
-        fprintf(stderr, "\nMallformed Packet Recieved!\n");
-      } /* if CIN_MAGIC_PACKET */
+        data->mallformed_packets++;
+      } 
+
+      last_packet_header = this_packet_header;
 
       /* Now we are done with the packet, we can advance the fifo */
 
@@ -552,8 +587,11 @@ void *cin_assembler_thread(cin_thread *data){
 
       if(byte_count == CIN_FRAME_SIZE){
         /* Advance the frame fifo and signal that a new frame
-           is avaliable */
+           is avaliable. Perhaps there is a better way to do this? */
         frame->number = this_frame;
+        frame->timestamp = this_frame_timestamp; /* taken from first packet */
+        data->last_frame = this_frame;
+
         pthread_mutex_lock(data->frame_mutex);
         fifo_advance_head(data->frame_fifo);
         pthread_cond_signal(data->frame_signal);
@@ -572,9 +610,12 @@ void *cin_assembler_thread(cin_thread *data){
 }
 
 void *cin_write_thread(cin_thread *data){
-  FILE *fp;
+  /* FILE *fp; */
+  TIFF *fp;
   char filename[256];
   cin_frame_fifo *frame;
+  uint16_t *p;
+  int j;
 
   while(1){
     /* Lock mutex and wait for frame */
@@ -582,12 +623,13 @@ void *cin_write_thread(cin_thread *data){
     /* and save to disk */
 
     pthread_mutex_lock(data->frame_mutex);
-    pthread_cond_wait(data->frame_signal, data->frame_mutex);
     frame = (cin_frame_fifo*)fifo_get_tail(data->frame_fifo);
     pthread_mutex_unlock(data->frame_mutex);
 
     if(frame != NULL){
-      sprintf(filename, "frame%06d.bin", frame->number);
+
+      /*
+      sprintf(filename, "frame%08d.bin", frame->number);
     
       fp = fopen(filename, "w");
       if(fp){
@@ -595,10 +637,36 @@ void *cin_write_thread(cin_thread *data){
                CIN_FRAME_HEIGHT * CIN_FRAME_WIDTH, fp);
         fclose(fp);
       } 
+      */
+
+      sprintf(filename, "frame%08d.tif", frame->number);
+      fp = TIFFOpen(filename, "w");  
+
+      TIFFSetField(fp, TIFFTAG_IMAGEWIDTH, CIN_FRAME_WIDTH);
+      TIFFSetField(fp, TIFFTAG_BITSPERSAMPLE, 16);
+      TIFFSetField(fp, TIFFTAG_SAMPLESPERPIXEL, 1);
+      TIFFSetField(fp, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+      TIFFSetField(fp, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
+      TIFFSetField(fp, TIFFTAG_ORIENTATION, ORIENTATION_BOTLEFT);
+
+      p = frame->data;
+      for(j=0;j<CIN_FRAME_HEIGHT;j++){
+        TIFFWriteScanline(fp, p, j, 0);
+        p += CIN_FRAME_WIDTH;
+      }
+
+      TIFFClose(fp);
+
+      //sleep(1);
 
       /* Now that file is written, advance the fifo */
       pthread_mutex_lock(data->frame_mutex);
       fifo_advance_tail(data->frame_fifo);
+      pthread_mutex_unlock(data->frame_mutex);
+    } else {
+      /* Nothing is in the buffer, wait for a signal */
+      pthread_mutex_lock(data->frame_mutex);
+      pthread_cond_wait(data->frame_signal, data->frame_mutex);
       pthread_mutex_unlock(data->frame_mutex);
     }
   }
@@ -607,13 +675,19 @@ void *cin_write_thread(cin_thread *data){
 }
 
 void *cin_monitor_thread(cin_thread *data){
-  fprintf(stderr, "\n\n");
+  fprintf(stderr, "\033[?25l");
 
   while(1){
-    fprintf(stderr, "Packet buffer is %9.3f %% full. Spool buffer is %9.3f %% full. Framerate = %6.1f s^-1\r",
+    fprintf(stderr, "Last frame %d\n", (unsigned int)data->last_frame);
+
+    fprintf(stderr, "Packet buffer is %6.2f %% full. Spool buffer is %6.2f %% full.\n",
             fifo_percent_full(data->packet_fifo),
-            fifo_percent_full(data->frame_fifo),data->framerate);
-    sleep(0.5);
+            fifo_percent_full(data->frame_fifo));
+    
+    fprintf(stderr, "Framerate = %4.1f s^-1 : Dropped packets %12ld : Mallformed packets %12ld\r",
+            data->framerate, data->dropped_packets, data->mallformed_packets);
+    fprintf(stderr, "\033[A\033[A"); /* Move up 2 lines */
+    sleep(0.75);
   }
 
   pthread_exit(NULL);
