@@ -15,7 +15,9 @@
 #include <stdint.h>
 #include <unistd.h>
 
-#include <tiffio.h>
+#ifdef _TIFF_OP_
+  #include <tiffio.h>
+#endif
 
 #include "cindata.h"
 #include "descramble_block.h"
@@ -447,10 +449,14 @@ void *cin_assembler_thread(cin_thread *data){
 
   uint64_t header;
 
+#ifdef _DESCRAMBLE_
   /* Descramble Map */
-
   uint32_t *ds_map; 
   uint32_t *ds_map_p;
+#else
+  /* Pointer to frame */
+  uint16_t *frame_p;
+#endif
 
   long int i;
   long int byte_count = 0;
@@ -458,16 +464,22 @@ void *cin_assembler_thread(cin_thread *data){
   struct timeval last_frame_timestamp = {0,0};
   struct timeval this_frame_timestamp = {0,0};
 
+#ifdef _DESCRAMBLE_
   /* Set descramble map */
-
   ds_map = (uint32_t*)descramble_map;
   ds_map_p = ds_map;
+#endif
 
-  /* Get first frame pointer from stack */
+  /* Get first frame pointer from the buffer */
 
   pthread_mutex_lock(data->frame_mutex);
   frame = (cin_frame_fifo*)fifo_get_head(data->frame_fifo);
   pthread_mutex_unlock(data->frame_mutex);
+
+#ifndef _DESCRAMBLE_
+  /* set frame_p to the start of the frame */
+  frame_p = frame->data;
+#endif
 
   while(1){
 
@@ -510,9 +522,14 @@ void *cin_assembler_thread(cin_thread *data){
           frame = (cin_frame_fifo*)fifo_get_head(data->frame_fifo);
           pthread_mutex_unlock(data->frame_mutex);
          
+#ifdef _DESCRAMBLE_
           /* Reset the descramble map pointer */
           ds_map_p = ds_map;
-         
+#else
+          /* Set the frame pointer to the start of the frame */
+          frame_p = frame->data;
+#endif
+
           /* Set all the last frame stuff */
           last_frame = this_frame;
           last_packet = -1;
@@ -548,23 +565,35 @@ void *cin_assembler_thread(cin_thread *data){
           fprintf(stderr, "%lx,%lx", last_packet_header, this_packet_header);
           fprintf(stderr, "\n\n\n\n\n");
 
-
           /* Write zero values to dropped packet regions */
           /* NOTE : We could use unused bits to do this better? */
+#ifdef _DESCRAMBLE_
           for(i=0;i<(CIN_PACKET_LEN * skipped_packets / 2);i++){
             *(frame->data + *ds_map_p) = CIN_DROPPED_PACKET_VAL;
             ds_map_p++;
           }
+#else
+          memset(frame_p, CIN_DROPPED_PACKET_VAL, 
+                 CIN_PACKET_LEN * skipped_packets / 2);
+          frame_p += CIN_PACKET_LEN * skipped_packets / 2;
+#endif
+
           byte_count += CIN_PACKET_LEN * skipped_packets;
+
         } else {
+
+#ifdef _DESCRAMBLE_
           /* Swap endienness of packet and copy to frame */
-          
           for(i=0;i<(buffer_len / 2);i++){
             *(frame->data + *ds_map_p) = (*buffer_p << 8) + *(buffer_p + 1);
             /* Advance descramble map by 1 and buffer by 2 */ 
             ds_map_p++;
             buffer_p += 2;
           }
+#else
+          memcpy(frame_p, (uint16_t*)buffer_p, buffer_len/2);
+          frame_p += buffer_len/2;
+#endif
           byte_count += buffer_len;
         }
       } else { 
@@ -611,11 +640,15 @@ void *cin_assembler_thread(cin_thread *data){
 
 void *cin_write_thread(cin_thread *data){
   /* FILE *fp; */
+#ifdef _TIFF_OP_
   TIFF *fp;
+  int j;
+  uint16_t *p;
+#else
+  FILE *fp;
+#endif
   char filename[256];
   cin_frame_fifo *frame;
-  uint16_t *p;
-  int j;
 
   while(1){
     /* Lock mutex and wait for frame */
@@ -628,16 +661,7 @@ void *cin_write_thread(cin_thread *data){
 
     if(frame != NULL){
 
-      /*
-      sprintf(filename, "frame%08d.bin", frame->number);
-    
-      fp = fopen(filename, "w");
-      if(fp){
-        fwrite(frame->data, sizeof(uint16_t), 
-               CIN_FRAME_HEIGHT * CIN_FRAME_WIDTH, fp);
-        fclose(fp);
-      } 
-      */
+#ifdef _TIFF_OP_ 
 
       sprintf(filename, "frame%08d.tif", frame->number);
       fp = TIFFOpen(filename, "w");  
@@ -657,7 +681,18 @@ void *cin_write_thread(cin_thread *data){
 
       TIFFClose(fp);
 
-      //sleep(1);
+#else
+
+      sprintf(filename, "frame%08d.bin", frame->number);
+    
+      fp = fopen(filename, "w");
+      if(fp){
+        fwrite(frame->data, sizeof(uint16_t), 
+               CIN_FRAME_HEIGHT * CIN_FRAME_WIDTH, fp);
+        fclose(fp);
+      } 
+
+#endif
 
       /* Now that file is written, advance the fifo */
       pthread_mutex_lock(data->frame_mutex);
