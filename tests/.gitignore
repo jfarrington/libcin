@@ -1,0 +1,5 @@
+core
+data_server
+*.bin
+*.tif
+make_descrambe_map
