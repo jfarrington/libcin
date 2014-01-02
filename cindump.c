@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <stdint.h>
+#include <tiffio.h>
 
 #include "cindata.h"
 
@@ -17,6 +18,16 @@ int main(int argc, char *argv[]){
 
   /* For command line processing */
   int c;
+
+  /* For writing out */
+  TIFF *tfp;
+  int j;
+  uint16_t *p;
+  FILE *fp;
+  char filename[256];
+  cin_frame_fifo *frame;
+  int tiff_output = 1;
+
 
   while((c = getopt(argc, argv, "i:o:h")) != -1){
     switch(c){
@@ -48,6 +59,44 @@ int main(int argc, char *argv[]){
   /* Start the main routine */
   cin_start_threads(thread_data);
 
-  pthread_exit(NULL);
+  while(1){
+    frame = cin_get_next_frame(thread_data);
+    if(tiff_output){
+      sprintf(filename, "frame%08d.tif", frame->number);
+      tfp = TIFFOpen(filename, "w");
+
+      TIFFSetField(tfp, TIFFTAG_IMAGEWIDTH, CIN_FRAME_WIDTH);
+      TIFFSetField(tfp, TIFFTAG_BITSPERSAMPLE, 16);
+      TIFFSetField(tfp, TIFFTAG_SAMPLESPERPIXEL, 1);
+      TIFFSetField(tfp, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+      TIFFSetField(tfp, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
+      TIFFSetField(tfp, TIFFTAG_ORIENTATION, ORIENTATION_BOTLEFT);
+
+      p = frame->data;
+      for(j=0;j<CIN_FRAME_HEIGHT;j++){
+        TIFFWriteScanline(tfp, p, j, 0);
+        p += CIN_FRAME_WIDTH;
+      }
+
+      TIFFClose(tfp);
+
+    } else {
+      sprintf(filename, "frame%08d.bin", frame->number);
+
+      fp = fopen(filename, "w");
+      if(fp){
+        fwrite(frame->data, sizeof(uint16_t),
+               CIN_FRAME_HEIGHT * CIN_FRAME_WIDTH, fp);
+        fclose(fp);
+      }
+
+    }
+
+    cin_release_frame(thread_data);
+  }
+
+  cin_wait_for_threads();
+
+  return(0);
 }
 
