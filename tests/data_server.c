@@ -21,9 +21,9 @@ int main(int argc, char *argv[]){
   int port = 49201;
   long delay = 3e6;
 
-  while((c = getopt (argc, argv, "h:p:d:")) != -1){
+  while((c = getopt (argc, argv, "a:p:d:h")) != -1){
     switch(c){
-      case 'h':
+      case 'a':
         host = optarg;
         break;
       case 'p':
@@ -31,6 +31,16 @@ int main(int argc, char *argv[]){
         break;
       case 'd':
         delay = atol(optarg);
+        break;
+      case 'h':
+      default:
+        fprintf(stderr, "data_server:\n\n");
+        fprintf(stderr, "\t-h : help (this page)\n");
+        fprintf(stderr, "\t-a : host to send UDP stream to.\n");
+        fprintf(stderr, "\t-p : port to send UDP stream to.\n");
+        fprintf(stderr, "\t-d : delay in nanoseconds between frames\n");
+        fprintf(stderr, "\n");  
+        exit(1);
         break;
     }
   }
