@@ -351,7 +351,7 @@ int cin_start_threads(cin_thread *data){
   data->packet_fifo = malloc(sizeof(fifo));
   data->frame_fifo  = malloc(sizeof(fifo));
 
-  if(!cin_initialize_fifo(data, 200, 200)){
+  if(!cin_initialize_fifo(data, 1000, 1000)){
     return FALSE;
   } 
 
