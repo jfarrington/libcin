@@ -16,10 +16,6 @@
 #include <unistd.h>
 #include <time.h>
 
-#ifdef _TIFF_OP_
-  #include <tiffio.h>
-#endif
-
 #include "cindata.h"
 #include "descramble_block.h"
 #include "bpfilter.h"
@@ -31,6 +27,7 @@
  * -----------------------------------------------------------------------------------------
  */
 
+pthread_t threads[MAX_THREADS];
 pthread_mutex_t *packet_mutex;
 pthread_cond_t *packet_signal;
 pthread_mutex_t *frame_mutex;
@@ -348,9 +345,7 @@ void fifo_advance_tail(fifo *f){
 
 int cin_start_threads(cin_thread *data){
   /* Initialize and start all the threads to acquire data */
-
-  pthread_t listener, writer, monitor, assembler;
-
+  /* This does not block, just start threads */
   /* Setup FIFO elements */
 
   data->packet_fifo = malloc(sizeof(fifo));
@@ -380,14 +375,20 @@ int cin_start_threads(cin_thread *data){
 
   /* Start threads */
 
-  pthread_create(&listener, NULL, (void *)cin_listen_thread, (void *)data);
-  pthread_create(&assembler, NULL, (void *)cin_assembler_thread, (void *)data);
-  pthread_create(&writer, NULL, (void *)cin_write_thread, (void *)data);
-  pthread_create(&monitor, NULL, (void *)cin_monitor_thread, (void *)data);
-  pthread_join(listener, NULL);
-  pthread_join(writer, NULL);
-  pthread_join(monitor, NULL);
-  pthread_join(assembler, NULL);
+  pthread_create(&threads[0], NULL, (void *)cin_listen_thread, (void *)data);
+  pthread_create(&threads[1], NULL, (void *)cin_assembler_thread, (void *)data);
+  pthread_create(&threads[2], NULL, (void *)cin_monitor_thread, (void *)data);
+
+  return TRUE;
+}
+
+int cin_wait_for_threads(void){
+  /* This routine waits for the threads to stop 
+     NOTE : This blocks until all threads complete */
+  int i;
+  for(i=0;i<3;i++){
+    pthread_join(threads[i], NULL);
+  }
 
   return TRUE;
 }
@@ -454,15 +455,17 @@ void *cin_assembler_thread(cin_thread *data){
   unsigned int skipped_packets = -1;
   unsigned int next_packet;
 
+#ifdef __DEBUG__
   uint64_t last_packet_header = 0;
   uint64_t this_packet_header = 0;
+#endif
 
   int buffer_len;
   unsigned char *buffer_p;
 
   uint64_t header;
 
-#ifdef _DESCRAMBLE_
+#ifdef __DESCRAMBLE__
   /* Descramble Map */
   uint32_t *ds_map; 
   uint32_t *ds_map_p;
@@ -477,7 +480,7 @@ void *cin_assembler_thread(cin_thread *data){
   struct timeval last_frame_timestamp = {0,0};
   struct timeval this_frame_timestamp = {0,0};
 
-#ifdef _DESCRAMBLE_
+#ifdef __DESCRAMBLE__
   /* Set descramble map */
   ds_map = (uint32_t*)descramble_map;
   ds_map_p = ds_map;
@@ -489,7 +492,7 @@ void *cin_assembler_thread(cin_thread *data){
   frame = (cin_frame_fifo*)fifo_get_head(data->frame_fifo);
   pthread_mutex_unlock(frame_mutex);
 
-#ifndef _DESCRAMBLE_
+#ifndef __DESCRAMBLE__
   /* set frame_p to the start of the frame */
   frame_p = frame->data;
 #endif
@@ -519,9 +522,9 @@ void *cin_assembler_thread(cin_thread *data){
         
         /* First byte of frame header is the packet no*/
         /* Bytes 7 and 8 are the frame number */ 
-    
+#ifdef __DEBUG__ 
         this_packet_header = *(uint64_t*)buffer_p;
-
+#endif
         this_packet = *buffer_p; 
         buffer_p += 6;
         this_frame  = (*buffer_p << 8) + *(buffer_p + 1);
@@ -535,7 +538,7 @@ void *cin_assembler_thread(cin_thread *data){
           frame = (cin_frame_fifo*)fifo_get_head(data->frame_fifo);
           pthread_mutex_unlock(frame_mutex);
          
-#ifdef _DESCRAMBLE_
+#ifdef __DESCRAMBLE__
           /* Reset the descramble map pointer */
           ds_map_p = ds_map;
 #else
@@ -574,13 +577,14 @@ void *cin_assembler_thread(cin_thread *data){
 
           /* increment Dropped packet counter */
           data->dropped_packets += (unsigned long int)skipped_packets;
+#ifdef __DEBUG__
           fprintf(stderr, "\n\n\n\n\n %d, %d, %d, %d\n", skipped_packets, last_packet, this_packet, next_packet);
           fprintf(stderr, "%lx,%lx", last_packet_header, this_packet_header);
           fprintf(stderr, "\n\n\n\n\n");
-
+#endif
           /* Write zero values to dropped packet regions */
           /* NOTE : We could use unused bits to do this better? */
-#ifdef _DESCRAMBLE_
+#ifdef __DESCRAMBLE__
           for(i=0;i<(CIN_PACKET_LEN * skipped_packets / 2);i++){
             *(frame->data + *ds_map_p) = CIN_DROPPED_PACKET_VAL;
             ds_map_p++;
@@ -595,7 +599,7 @@ void *cin_assembler_thread(cin_thread *data){
 
         } else {
 
-#ifdef _DESCRAMBLE_
+#ifdef __DESCRAMBLE__
           /* Swap endienness of packet and copy to frame */
           for(i=0;i<(buffer_len / 2);i++){
             *(frame->data + *ds_map_p) = (*buffer_p << 8) + *(buffer_p + 1);
@@ -613,7 +617,9 @@ void *cin_assembler_thread(cin_thread *data){
         data->mallformed_packets++;
       } 
 
+#ifdef __DEBUG__ 
       last_packet_header = this_packet_header;
+#endif
 
       /* Now we are done with the packet, we can advance the fifo */
 
@@ -645,77 +651,6 @@ void *cin_assembler_thread(cin_thread *data){
       pthread_mutex_lock(packet_mutex);
       pthread_cond_wait(packet_signal, packet_mutex);
       pthread_mutex_unlock(packet_mutex);
-    }
-  }
-
-  pthread_exit(NULL);
-}
-
-void *cin_write_thread(cin_thread *data){
-  /* FILE *fp; */
-#ifdef _TIFF_OP_
-  TIFF *fp;
-  int j;
-  uint16_t *p;
-#else
-  FILE *fp;
-#endif
-  char filename[256];
-  cin_frame_fifo *frame;
-
-  while(1){
-    /* Lock mutex and wait for frame */
-    /* once frame arrives, get the lail from the fifo */
-    /* and save to disk */
-
-    pthread_mutex_lock(frame_mutex);
-    frame = (cin_frame_fifo*)fifo_get_tail(data->frame_fifo);
-    pthread_mutex_unlock(frame_mutex);
-
-    if(frame != NULL){
-
-#ifdef _TIFF_OP_ 
-
-      sprintf(filename, "frame%08d.tif", frame->number);
-      fp = TIFFOpen(filename, "w");  
-
-      TIFFSetField(fp, TIFFTAG_IMAGEWIDTH, CIN_FRAME_WIDTH);
-      TIFFSetField(fp, TIFFTAG_BITSPERSAMPLE, 16);
-      TIFFSetField(fp, TIFFTAG_SAMPLESPERPIXEL, 1);
-      TIFFSetField(fp, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-      TIFFSetField(fp, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
-      TIFFSetField(fp, TIFFTAG_ORIENTATION, ORIENTATION_BOTLEFT);
-
-      p = frame->data;
-      for(j=0;j<CIN_FRAME_HEIGHT;j++){
-        TIFFWriteScanline(fp, p, j, 0);
-        p += CIN_FRAME_WIDTH;
-      }
-
-      TIFFClose(fp);
-
-#else
-
-      sprintf(filename, "frame%08d.bin", frame->number);
-    
-      fp = fopen(filename, "w");
-      if(fp){
-        fwrite(frame->data, sizeof(uint16_t), 
-               CIN_FRAME_HEIGHT * CIN_FRAME_WIDTH, fp);
-        fclose(fp);
-      } 
-
-#endif
-
-      /* Now that file is written, advance the fifo */
-      pthread_mutex_lock(frame_mutex);
-      fifo_advance_tail(data->frame_fifo);
-      pthread_mutex_unlock(frame_mutex);
-    } else {
-      /* Nothing is in the buffer, wait for a signal */
-      pthread_mutex_lock(frame_mutex);
-      pthread_cond_wait(frame_signal, frame_mutex);
-      pthread_mutex_unlock(frame_mutex);
     }
   }
 
@@ -772,6 +707,29 @@ void *cin_listen_thread(cin_thread *data){
   }
 
   pthread_exit(NULL);
+}
+
+cin_frame_fifo* cin_get_next_frame(cin_thread *data){
+  /* This routine gets the next frame. This will block until a frame is avaliable */
+  cin_frame_fifo *frame = NULL;
+
+  pthread_mutex_lock(frame_mutex);
+  frame = (cin_frame_fifo*)fifo_get_tail(data->frame_fifo);
+  while(frame == NULL){
+    frame = (cin_frame_fifo*)fifo_get_tail(data->frame_fifo);
+    /* block until frame is avaliable */
+    pthread_cond_wait(frame_signal, frame_mutex);
+  }
+  pthread_mutex_unlock(frame_mutex);
+  
+  return frame;
+}
+
+void cin_release_frame(cin_thread *data){
+  /* Advance the fifo */
+  pthread_mutex_lock(frame_mutex);
+  fifo_advance_tail(data->frame_fifo);
+  pthread_mutex_unlock(frame_mutex);
 }
 
 /* -----------------------------------------------------------------------------------------

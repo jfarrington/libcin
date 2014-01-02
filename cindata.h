@@ -11,6 +11,8 @@
 #define FALSE 0
 #endif
 
+#define MAX_THREADS             5
+
 #define CIN_MAX_MTU             9000
 #define CIN_SVRPORT             49201
 #define CIN_SVRADDR             "0.0.0.0"
@@ -105,7 +107,6 @@ double fifo_percent_full(fifo *f);
 /* Threads for processing stream */
 
 void *cin_listen_thread(cin_thread *data);
-void *cin_write_thread(cin_thread *data);
 void *cin_monitor_thread(cin_thread *data);
 void *cin_assembler_thread(cin_thread *data);
 
@@ -113,8 +114,12 @@ void *cin_assembler_thread(cin_thread *data);
 
 int cin_initialize_fifo(cin_thread *data, long int packet_size, long int frame_size);
 int cin_start_threads(cin_thread *data);
-#endif
+int cin_wait_for_threads(void);
+cin_frame_fifo* cin_get_next_frame(cin_thread *data);
+void cin_release_frame(cin_thread *data);
 
 /* Profiling Functions */
 struct timespec timespec_diff(struct timespec start, struct timespec end);
 void timespec_copy(struct timespec *dest, struct timespec *src);
+
+#endif
