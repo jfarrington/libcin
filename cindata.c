@@ -14,6 +14,7 @@
 #include <sys/time.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <time.h>
 
 #ifdef _TIFF_OP_
   #include <tiffio.h>
@@ -759,4 +760,29 @@ void *cin_listen_thread(cin_thread *data){
   }
 
   pthread_exit(NULL);
+}
+
+/* -----------------------------------------------------------------------------------------
+ *
+ * Routines for benchmarking
+ *
+ * -----------------------------------------------------------------------------------------
+ */
+
+struct timespec timespec_diff(struct timespec start, struct timespec end){
+  /* Calculte the difference between two times */
+  struct timespec temp;
+  if ((end.tv_nsec-start.tv_nsec)<0) {
+    temp.tv_sec = end.tv_sec-start.tv_sec-1;
+    temp.tv_nsec = 1000000000+end.tv_nsec-start.tv_nsec;
+  } else {
+    temp.tv_sec = end.tv_sec-start.tv_sec;
+    temp.tv_nsec = end.tv_nsec-start.tv_nsec;
+  }
+  return temp;
+}
+
+void timespec_copy(struct timespec *dest, struct timespec *src){
+  dest->tv_sec = src->tv_sec;
+  dest->tv_sec = src->tv_nsec;
 }

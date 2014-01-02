@@ -119,3 +119,7 @@ void *cin_assembler_thread(cin_thread *data);
 int cin_initialize_fifo(cin_thread *data, long int packet_size, long int frame_size);
 int cin_start_threads(cin_thread *data);
 #endif
+
+/* Profiling Functions */
+struct timespec timespec_diff(struct timespec start, struct timespec end);
+void timespec_copy(struct timespec *dest, struct timespec *src);
