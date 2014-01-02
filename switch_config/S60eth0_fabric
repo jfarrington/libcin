@@ -1,0 +1,16 @@
+#!/bin/sh
+#
+# Bring up eth0
+#
+case "$1" in
+	start)
+    ifconfig eth0 10.23.2.70 netmask 255.255.254.0 up
+		route add default gw 10.23.2.254
+		;;
+	stop)
+               	ifconfig eth0 down
+		;;	
+ 	*)
+		echo "Usage: $0 {start|stop}"
+                exit 1
+esac

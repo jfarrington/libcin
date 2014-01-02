@@ -1,0 +1,19 @@
+#!/bin/sh
+#
+# set ntp
+#
+#
+#
+
+
+case "$1" in
+        start)
+		sleep 20
+                /usr/sbin/ntpdate -u 10.0.137.125
+                ;;
+        stop)
+                ;;
+        *)
+                echo "Usage: $0 {start|stop}"
+                exit 1
+esac

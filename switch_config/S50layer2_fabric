@@ -1,0 +1,43 @@
+#!/bin/sh
+#
+# Layer 2 Switch
+#
+#
+
+
+case "$1" in
+	start)
+		#
+		# Create a single untagged vlan (i.e. interface), consisting
+		# of the 26 Gigabit Ethernet ports Layer 2 forwarding enabled
+		# Put the ISL in its own vlan to avoid loops
+		#
+		/usr/sbin/zconfig zhp0: vlan1=zre0..2,zre15,zre17
+    /usr/sbin/zconfig zhp0: vlan2=zre3..5,zre16,zre18
+		/usr/sbin/zconfig zre0..2,zre15,zre17=untag1
+    /usr/sbin/zconfig zre3..5,zre16,zre18=untag2
+
+    zkeyd -e zre0
+    zkeyd -e zre1
+    zkeyd -e zre2
+    zkeyd -e zre3
+    zkeyd -e zre4
+    zkeyd -e zre5
+    
+		ifconfig zhp0 10.0.5.22 netmask 255.255.255.0 broadcast 10.0.5.255 up
+    ifconfig zhp1 10.0.6.22 netmask 255.255.255.0 broadcast 10.0.6.255 up
+
+		;;
+	stop)
+		#
+		# Bring down the interface
+		#
+		ifconfig zhp0 down
+    ifconfig zhp1 down
+		/usr/sbin/zconfig zhp0:teardown
+    /usr/sbin/zconfig zhp1:teardown
+		;;
+	*)
+		echo "Usage: $0 {start|stop}"
+		exit 1
+esac
