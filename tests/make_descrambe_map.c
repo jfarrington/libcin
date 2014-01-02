@@ -13,6 +13,8 @@ int main(void){
   uint32_t i,j;
   uint64_t height = 964, width = 1152, pixels; 
 
+  int forward = 0;
+
   FILE *fp;
 
   pixels = height * width;
@@ -32,14 +34,22 @@ int main(void){
 
     for(j = 0;j<pixels; j++){
       if(out[j] == 1){
-        store[i] = j;
+        if(forward){
+          store[i] = j;
+        } else {
+          store[i] = i;
+        }
         fprintf(stderr, "%ld,%ld\n", (long int)i,(long int)j);
         continue;
       }
     }
   }
 
-  fp = fopen("test.bin", "w");
+  if(forward){
+    fp = fopen("descramble_mapi_forward.bin", "w");
+  } else {
+    fp = fopen("descramble_map_reverse.bin", "w");
+  }
   fwrite(store, sizeof(uint32_t), pixels, fp);
   fclose(fp);
 
