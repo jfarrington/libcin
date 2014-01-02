@@ -29,18 +29,19 @@ int main(int argc, char *argv[]){
   int tiff_output = 1;
 
 
-  while((c = getopt(argc, argv, "i:o:h")) != -1){
+  while((c = getopt(argc, argv, "i:hir")) != -1){
     switch(c){
       case 'h':
         fprintf(stderr,"cindump : Dump data from CIN\n\n");
+        fprintf(stderr,"\t -i : Interface to bind to (eth5)\n");
+        fprintf(stderr,"\t -r : Write files in raw (uint16_t format)\n");
+        fprintf(stderr,"\n");
         exit(1);
       case 'i':
         eth_interface = optarg;
-        printf("**** Using interface %s\n", eth_interface);
         break;
-      case 'o':
-        odir = optarg;
-        printf("**** Writing to directory : %s\n", odir);
+      case 'r':
+        tiff_output =0;
         break;
     }
   }

@@ -667,7 +667,7 @@ void *cin_monitor_thread(cin_thread *data){
             fifo_percent_full(data->packet_fifo),
             fifo_percent_full(data->frame_fifo));
     
-    fprintf(stderr, "Framerate = %4.1f s^-1 : Dropped packets %12ld : Mallformed packets %12ld\r",
+    fprintf(stderr, "Framerate = %6.1f s^-1 : Dropped packets %10ld : Mallformed packets %6ld\r",
             data->framerate, data->dropped_packets, data->mallformed_packets);
     fprintf(stderr, "\033[A\033[A"); /* Move up 2 lines */
     sleep(0.75);
