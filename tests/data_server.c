@@ -19,8 +19,6 @@ int main(int argc, char *argv[]){
   num_packets = setup_packets(&packet, CIN_PACKET_LEN, 
                               scrambled_frame, scrambled_frame_len - 312);
 
-  fprintf(stderr, "Frame has %d packets\n", num_packets);
-
   start_server(packet, num_packets);
 
   return(0);
@@ -72,8 +70,6 @@ int start_server(udp_packet *packets, int num_packets){
   int i = 1;
   int d;
   struct timespec delay = {0,5e6};
-
-  fprintf(stderr, "packets = %p\n", packets);
 
   dest_addr.sin_family = AF_INET;
   dest_addr.sin_port   = htons(49201);
