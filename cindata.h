@@ -63,11 +63,6 @@ typedef struct {
   unsigned long int mallformed_packets;
   uint16_t last_frame;
 
-  /* Thread communications */
-  pthread_mutex_t *packet_mutex;
-  pthread_cond_t *packet_signal; 
-  pthread_mutex_t *frame_mutex;
-  pthread_cond_t *frame_signal;
 } cin_thread;
 
 typedef struct {

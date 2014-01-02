@@ -26,6 +26,18 @@
 
 /* -----------------------------------------------------------------------------------------
  *
+ * Thread communication global variables
+ *
+ * -----------------------------------------------------------------------------------------
+ */
+
+pthread_mutex_t *packet_mutex;
+pthread_cond_t *packet_signal;
+pthread_mutex_t *frame_mutex;
+pthread_cond_t *frame_signal;
+
+/* -----------------------------------------------------------------------------------------
+ *
  * Network functions to read from fabric UDP port
  *
  * -----------------------------------------------------------------------------------------
@@ -356,15 +368,15 @@ int cin_start_threads(cin_thread *data){
 
   /* Setup Mutexes */
 
-  data->packet_mutex  = malloc(sizeof(pthread_mutex_t));
-  data->frame_mutex   = malloc(sizeof(pthread_mutex_t));
-  data->packet_signal = malloc(sizeof(pthread_cond_t));
-  data->frame_signal  = malloc(sizeof(pthread_cond_t));
+  packet_mutex  = malloc(sizeof(pthread_mutex_t));
+  frame_mutex   = malloc(sizeof(pthread_mutex_t));
+  packet_signal = malloc(sizeof(pthread_cond_t));
+  frame_signal  = malloc(sizeof(pthread_cond_t));
 
-  pthread_mutex_init(data->packet_mutex, NULL);
-  pthread_mutex_init(data->frame_mutex, NULL);
-  pthread_cond_init(data->packet_signal, NULL);
-  pthread_cond_init(data->frame_signal, NULL);
+  pthread_mutex_init(packet_mutex, NULL);
+  pthread_mutex_init(frame_mutex, NULL);
+  pthread_cond_init(packet_signal, NULL);
+  pthread_cond_init(frame_signal, NULL);
 
   /* Start threads */
 
@@ -473,9 +485,9 @@ void *cin_assembler_thread(cin_thread *data){
 
   /* Get first frame pointer from the buffer */
 
-  pthread_mutex_lock(data->frame_mutex);
+  pthread_mutex_lock(frame_mutex);
   frame = (cin_frame_fifo*)fifo_get_head(data->frame_fifo);
-  pthread_mutex_unlock(data->frame_mutex);
+  pthread_mutex_unlock(frame_mutex);
 
 #ifndef _DESCRAMBLE_
   /* set frame_p to the start of the frame */
@@ -486,9 +498,9 @@ void *cin_assembler_thread(cin_thread *data){
 
     /* Lock the mutex and get a packet from the fifo */
 
-    pthread_mutex_lock(data->packet_mutex);
+    pthread_mutex_lock(packet_mutex);
     buffer = (cin_packet_fifo*)fifo_get_tail(data->packet_fifo);
-    pthread_mutex_unlock(data->packet_mutex);
+    pthread_mutex_unlock(packet_mutex);
 
     if(buffer != NULL){
       /* Start assebleing frame */
@@ -519,9 +531,9 @@ void *cin_assembler_thread(cin_thread *data){
           /* We have a new frame */
 
           /* Lock the mutex and get the next frame buffer */
-          pthread_mutex_lock(data->frame_mutex);
+          pthread_mutex_lock(frame_mutex);
           frame = (cin_frame_fifo*)fifo_get_head(data->frame_fifo);
-          pthread_mutex_unlock(data->frame_mutex);
+          pthread_mutex_unlock(frame_mutex);
          
 #ifdef _DESCRAMBLE_
           /* Reset the descramble map pointer */
@@ -605,9 +617,9 @@ void *cin_assembler_thread(cin_thread *data){
 
       /* Now we are done with the packet, we can advance the fifo */
 
-      pthread_mutex_lock(data->packet_mutex);
+      pthread_mutex_lock(packet_mutex);
       fifo_advance_tail(data->packet_fifo);
-      pthread_mutex_unlock(data->packet_mutex);
+      pthread_mutex_unlock(packet_mutex);
 
       /* Now we can set the last packet to this packet */
 
@@ -622,17 +634,17 @@ void *cin_assembler_thread(cin_thread *data){
         frame->timestamp = this_frame_timestamp; /* taken from first packet */
         data->last_frame = this_frame;
 
-        pthread_mutex_lock(data->frame_mutex);
+        pthread_mutex_lock(frame_mutex);
         fifo_advance_head(data->frame_fifo);
-        pthread_cond_signal(data->frame_signal);
-        pthread_mutex_unlock(data->frame_mutex);
+        pthread_cond_signal(frame_signal);
+        pthread_mutex_unlock(frame_mutex);
       }
 
     } else {
       /* Buffer is empty - wait for next packet */
-      pthread_mutex_lock(data->packet_mutex);
-      pthread_cond_wait(data->packet_signal, data->packet_mutex);
-      pthread_mutex_unlock(data->packet_mutex);
+      pthread_mutex_lock(packet_mutex);
+      pthread_cond_wait(packet_signal, packet_mutex);
+      pthread_mutex_unlock(packet_mutex);
     }
   }
 
@@ -656,9 +668,9 @@ void *cin_write_thread(cin_thread *data){
     /* once frame arrives, get the lail from the fifo */
     /* and save to disk */
 
-    pthread_mutex_lock(data->frame_mutex);
+    pthread_mutex_lock(frame_mutex);
     frame = (cin_frame_fifo*)fifo_get_tail(data->frame_fifo);
-    pthread_mutex_unlock(data->frame_mutex);
+    pthread_mutex_unlock(frame_mutex);
 
     if(frame != NULL){
 
@@ -696,14 +708,14 @@ void *cin_write_thread(cin_thread *data){
 #endif
 
       /* Now that file is written, advance the fifo */
-      pthread_mutex_lock(data->frame_mutex);
+      pthread_mutex_lock(frame_mutex);
       fifo_advance_tail(data->frame_fifo);
-      pthread_mutex_unlock(data->frame_mutex);
+      pthread_mutex_unlock(frame_mutex);
     } else {
       /* Nothing is in the buffer, wait for a signal */
-      pthread_mutex_lock(data->frame_mutex);
-      pthread_cond_wait(data->frame_signal, data->frame_mutex);
-      pthread_mutex_unlock(data->frame_mutex);
+      pthread_mutex_lock(frame_mutex);
+      pthread_cond_wait(frame_signal, frame_mutex);
+      pthread_mutex_unlock(frame_mutex);
     }
   }
 
@@ -741,9 +753,9 @@ void *cin_listen_thread(cin_thread *data){
 
   while(1){
     /* Get the next element in the fifo */
-    pthread_mutex_lock(data->packet_mutex);
+    pthread_mutex_lock(packet_mutex);
     buffer = (cin_packet_fifo*)fifo_get_head(data->packet_fifo);
-    pthread_mutex_unlock(data->packet_mutex);
+    pthread_mutex_unlock(packet_mutex);
 
     buffer->size = net_read(data->iface, buffer->data);
     gettimeofday(&buffer->timestamp, NULL);
@@ -751,10 +763,10 @@ void *cin_listen_thread(cin_thread *data){
     //fprintf(stderr, "Buffer size = %d\n", buffer->size);
 
     if (buffer->size > 1024){
-      pthread_mutex_lock(data->packet_mutex);
+      pthread_mutex_lock(packet_mutex);
       fifo_advance_head(data->packet_fifo);
-      pthread_cond_signal(data->packet_signal);
-      pthread_mutex_unlock(data->packet_mutex);
+      pthread_cond_signal(packet_signal);
+      pthread_mutex_unlock(packet_mutex);
     }
     
   }
