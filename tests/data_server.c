@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <time.h>
 
 #include "data_server.h"
 #include "scrambled_frame.h"
@@ -70,6 +71,7 @@ int start_server(udp_packet *packets, int num_packets){
   uint16_t frame_num;
   int i = 1;
   int d;
+  struct timespec delay = {0,5e6};
 
   fprintf(stderr, "packets = %p\n", packets);
 
@@ -99,7 +101,7 @@ int start_server(udp_packet *packets, int num_packets){
              (struct sockaddr*) &dest_addr, sizeof(dest_addr));
       packet_p++;
     }
-    sleep(1);
+    nanosleep(&delay, NULL);
     frame_num++;
   }
 
