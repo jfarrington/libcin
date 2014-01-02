@@ -97,7 +97,6 @@ int start_server(udp_packet *packets, int num_packets, char* host, int port, lon
   udp_packet* packet_p;
   uint16_t frame_num;
   int i = 1;
-  int d;
   struct timespec delay_time = {0, 0};
   char buffer[256];
 
@@ -133,7 +132,7 @@ int start_server(udp_packet *packets, int num_packets, char* host, int port, lon
     for(i=0;i<num_packets;i++){
       packet_p->data[6] = (char)(frame_num >> 8);
       packet_p->data[7] = (char)(frame_num & 0xFF);
-      d = sendto(s, packet_p->data, packet_p->len, 0, 
+      sendto(s, packet_p->data, packet_p->len, 0, 
              (struct sockaddr*) &dest_addr, sizeof(dest_addr));
       packet_p++;
     }
