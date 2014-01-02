@@ -2,9 +2,11 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <time.h>
 
 #include "data_server.h"
@@ -14,12 +16,29 @@
 
 int main(int argc, char *argv[]){
   udp_packet *packet;
-  int num_packets;
+  int num_packets, c;
+  char *host = NULL;
+  int port = 49201;
+  long delay = 3e6;
+
+  while((c = getopt (argc, argv, "h:p:d:")) != -1){
+    switch(c){
+      case 'h':
+        host = optarg;
+        break;
+      case 'p':
+        port = atoi(optarg);
+        break;
+      case 'd':
+        delay = atol(optarg);
+        break;
+    }
+  }
 
   num_packets = setup_packets(&packet, CIN_PACKET_LEN, 
                               scrambled_frame, scrambled_frame_len - 312);
 
-  start_server(packet, num_packets);
+  start_server(packet, num_packets, host, port, delay);
 
   return(0);
 }
@@ -62,18 +81,25 @@ int setup_packets(udp_packet **packets, int packet_size,
   return num_packets;
 }
 
-int start_server(udp_packet *packets, int num_packets){
+int start_server(udp_packet *packets, int num_packets, char* host, int port, long delay){
   int s; /* socket */
   struct sockaddr_in dest_addr;
   udp_packet* packet_p;
   uint16_t frame_num;
   int i = 1;
   int d;
-  struct timespec delay = {0,5e6};
+  struct timespec delay_time = {0, 0};
+  char buffer[256];
+
+  delay_time.tv_nsec = delay;
 
   dest_addr.sin_family = AF_INET;
-  dest_addr.sin_port   = htons(49201);
-  inet_pton(AF_INET, "10.0.5.23", &dest_addr.sin_addr);
+  dest_addr.sin_port   = htons(port);
+  if(host == NULL){
+    inet_pton(AF_INET, "10.0.5.23", &dest_addr.sin_addr);
+  } else {
+    inet_pton(AF_INET, host, &dest_addr.sin_addr);
+  }
 
   s = socket(AF_INET, SOCK_DGRAM, 0);
   if(s < 0){
@@ -86,6 +112,10 @@ int start_server(udp_packet *packets, int num_packets){
     return 1;
   }
 
+  fprintf(stderr, "Remote host = %s\n", inet_ntop(AF_INET,&dest_addr.sin_addr, buffer, 256));
+  fprintf(stderr, "Remote port = %d\n", port);
+  fprintf(stderr, "Delay = %ld ns\n", delay_time.tv_nsec); 
+
   frame_num = 0;
 
   while(1){
@@ -97,7 +127,7 @@ int start_server(udp_packet *packets, int num_packets){
              (struct sockaddr*) &dest_addr, sizeof(dest_addr));
       packet_p++;
     }
-    nanosleep(&delay, NULL);
+    nanosleep(&delay_time, NULL);
     frame_num++;
   }
 

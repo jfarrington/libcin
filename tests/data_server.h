@@ -14,6 +14,6 @@ typedef struct {
 } udp_packet;
 
 int setup_packets(udp_packet **packet, int packet_size,unsigned char* stream, unsigned int stream_len);
-int start_server(udp_packet *packets, int num_packets);
+int start_server(udp_packet *packets, int num_packets, char* host, int port, long delay);
 
 #endif
