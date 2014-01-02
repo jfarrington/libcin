@@ -1,7 +1,7 @@
 # Variables for compelation
 RM=rm
 CC=gcc
-CFLAGS=-c -Wall -O3 -D_DESCRAMBLE_ -D_TIFF_OP_
+CFLAGS=-c -Wall -O3 -D__DESCRAMBLE__
 LIBS=
 OBJS=$(SRCSi:.c=.o)
 MAKE=make
