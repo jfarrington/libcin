@@ -13,7 +13,7 @@
 
 #define CIN_MAX_MTU             9000
 #define CIN_SVRPORT             49201
-#define CIN_SVRADDR             "10.0.5.22"
+#define CIN_SVRADDR             "0.0.0.0"
 #define CIN_IFACE_NAME          "eth0"
 #define CIN_SOCKET_MODE_UDP     1
 #define CIN_SOCKET_MODE_BFP     2

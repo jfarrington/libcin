@@ -591,7 +591,7 @@ void *cin_assembler_thread(cin_thread *data){
             buffer_p += 2;
           }
 #else
-          memcpy(frame_p, (uint16_t*)buffer_p, buffer_len/2);
+          memcpy(frame_p, (uint16_t*)buffer_p, buffer_len);
           frame_p += buffer_len/2;
 #endif
           byte_count += buffer_len;
