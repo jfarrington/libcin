@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <getopt.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -97,7 +98,7 @@ int start_server(udp_packet *packets, int num_packets, char* host, int port, lon
   udp_packet* packet_p;
   uint16_t frame_num;
   int i = 1;
-  struct timespec delay_time = {0, 0};
+  struct timespec delay_time = {.tv_sec = 0, .tv_nsec = 0};
   char buffer[256];
 
   delay_time.tv_nsec = delay;

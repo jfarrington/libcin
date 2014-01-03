@@ -1,12 +1,11 @@
-#ifndef __CIN_API_H__
-#define __CIN_API_H__
+#ifndef __CIN_H__
+#define __CIN_H__
 
 #include <stdint.h>
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
-
 
 #define CIN_CTL_IP      "192.168.1.207"
 #define CIN_CTL_PORT    49200
@@ -32,5 +31,4 @@ void cin_power_up();
 void cin_power_down();
 void cin_report_power_status();
 
-
-#endif /* ifndef __CIN_API_H__ */
+#endif

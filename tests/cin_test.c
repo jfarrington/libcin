@@ -1,6 +1,5 @@
 #include <unistd.h> /* for sleep() */
-#include "cin_register_map.h"
-#include "cin_api.h"
+#include "../cin.h"
 
 
 int main() {

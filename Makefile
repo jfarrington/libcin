@@ -1,28 +1,27 @@
 # Variables for compelation
 RM=rm
 CC=gcc
-CFLAGS=-c -Wall -O3 -D__DESCRAMBLE__
-LIBS=
-OBJS=$(SRCSi:.c=.o)
+CFLAGS=-Wall -O3 -D__DESCRAMBLE__ -I.
+LDFLAGS=-L.
 MAKE=make
-SUBDIRS=tests utils
+SUBDIRS=control tests
+
+LIBHEADERS=control/cin_api.h \
+           control/cin_register_map.h
+LIBSOURCES=control/cin_api.c
+LIBOBJECTS=$(LIBSOURCES:.c=.o)
 
 .PHONY : clean subdirs $(SUBDIRS)
 
-all: cindump libcin cintest subdirs
+# Export all variables to sub make processes
+export
+
+all: subdirs
 
 # create dynamically and statically-linked libs.
-# the latter is used to create the "cintest" executable
-libcin: cin_api.c cin_api.h cin_register_map.h
-	$(CC) -Wall -c -o $@.o $<
-	$(AR) -rcs $@.a $@.o
-	$(CC) -Wall -fpic -shared -o $@.so $<
-
-cintest: cin_test.c cin_api.c
-	$(CC) -Wall -o $@ $^
-
-cindump: cindata.o cindump.o cindata.h bpfilter.h descramble_block.h
-	$(CC) cindata.o cindump.o -ltiff -lpthread -o cindump
+libcin: $(LIBOBJECTS) $(LIBSOURCES)
+	$(AR) -rcs lib/$@.a $(LIBOBJECTS)
+#	$(CC) -Wall -fpic -shared -o $@.so $<
 
 subdirs: $(SUBDIRS)
 
@@ -30,8 +29,7 @@ $(SUBDIRS):
 	$(MAKE) -C $@
 
 clean:
-	rm -f *.o
-	rm -f cindump
-	rm -f cintest
-	rm -f *.so *.a
+	$(RM) -f *.o
+	$(RM) -f lib/*.so lib/*.a
 	$(MAKE) -C tests clean
+	$(MAKE) -C control clean
