@@ -1,5 +1,5 @@
 #include <unistd.h> /* for sleep() */
-#include "../cin.h"
+#include "cin.h"
 
 
 int main() {

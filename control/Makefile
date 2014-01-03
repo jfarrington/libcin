@@ -1,3 +1,5 @@
+CFLAGS+=-I..
+
 .PHONY : clean 
 
 all: cin_api.o

@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <sys/socket.h>
 
-#include "../cin.h"
+#include "cin.h"
 #include "cin_register_map.h"
 #include "cin_api.h"
 
