@@ -1,5 +1,6 @@
 LDFLAGS+=-L../lib
 LDLIBS+=-lcin
+CFLAGS+=-I..
 
 .PHONY : clean
 
