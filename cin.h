@@ -12,6 +12,7 @@
 
 #define CIN_DATA_IP                  "10.0.5.207"
 #define CIN_DATA_PORT                49201
+#define CIN_DATA_CTL_PORT            49203
 #define CIN_DATA_MAX_MTU             9000
 #define CIN_DATA_UDP_PACKET_HEADER   48
 #define CIN_DATA_UDP_HEADER          8
@@ -26,7 +27,9 @@
 
 struct cin_port {
     char *srvaddr;
+    char *cliaddr;
     uint16_t srvport;
+    uint16_t cliport;
     int sockfd;
     struct timeval tv;
     struct sockaddr_in sin_srv; /* server info */
@@ -57,6 +60,7 @@ void cin_report_power_status();
 
 int cin_init_data_port(struct cin_port* dp,
                        char* ipaddr, uint16_t port,
+                       char* cin_ipaddr, uint16_t cin_port,
                        unsigned int rcvbuf);
 int cin_data_read(struct cin_port* dp, unsigned char* buffer);
 int cin_data_write(struct cin_port* dp, unsigned char* buffer, int buffer_len);
