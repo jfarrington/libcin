@@ -38,7 +38,7 @@ int main(int argc, char *argv[]){
     }
   }
 
-  if(cin_init_data_port(&port, NULL, 0, 0)){
+  if(cin_init_data_port(&port, NULL, 0, NULL, 0, 0)){
     exit(1);
   }
 
