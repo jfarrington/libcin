@@ -1,5 +1,5 @@
-#ifndef _CIN_LISTEN_H 
-#define _CIN_LISTEN_H 
+#ifndef __CIN_DATA__H 
+#define __CIN_DATA__H
 
 /* Definitions */
 
@@ -14,16 +14,6 @@
 #define MAX_THREADS             5
 
 /* Datastructures */
-
-typedef struct {
-  void *data;
-  void *head;
-  void *tail;
-  void *end;
-  long int size;
-  int elem_size;
-  int full;
-} fifo;
 
 struct cin_data_thread_data {
   /* FIFO Elements */
@@ -48,16 +38,6 @@ struct cin_data_packet {
 };
 
 /* Templates for functions */
-
-/* FIFO Functions */
-
-void* fifo_get_head(fifo *f);
-void* fifo_get_tail(fifo *f);
-void fifo_advance_head(fifo *f);
-void fifo_advance_tail(fifo *f);
-int fifo_init(fifo *f, int elem_size, long int size);
-long int fifo_used_bytes(fifo *f);
-double fifo_percent_full(fifo *f);
 
 /* Threads for processing stream */
 

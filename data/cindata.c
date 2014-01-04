@@ -17,6 +17,7 @@
 #include <time.h>
 
 #include "cin.h"
+#include "fifo.h"
 #include "cindata.h"
 #include "descramble_block.h"
 
@@ -43,18 +44,31 @@ static struct cin_data_thread_data thread_data;
 
 int cin_init_data_port(struct cin_port* dp, 
                        char* ipaddr, uint16_t port,
+                       char* cin_ipaddr, uint16_t cin_port,
                        unsigned int rcvbuf) {
 
   if(ipaddr == NULL){
-    dp->srvaddr = CIN_DATA_IP;
+    dp->cliaddr = "0.0.0.0";
   } else {
-    dp->srvaddr = strndup(ipaddr, strlen(ipaddr));
+    dp->cliaddr = ipaddr;
   }
 
   if(port == 0){
-    dp->srvport = CIN_DATA_PORT;
+    dp->cliport = CIN_DATA_PORT;
   } else {
-    dp->srvport = port;
+    dp->cliport = port;
+  }
+
+  if(cin_ipaddr == NULL){
+    dp->srvaddr = CIN_DATA_IP;
+  } else {
+    dp->srvaddr = cin_ipaddr;
+  }
+
+  if(cin_port == 0){
+    dp->srvport = CIN_DATA_CTL_PORT;
+  } else {
+    dp->srvport = cin_port;
   }
 
   if(rcvbuf == 0){
@@ -80,11 +94,27 @@ int cin_init_data_port(struct cin_port* dp,
 
   memset(&dp->sin_srv, 0, sizeof(struct sockaddr_in));
   memset(&dp->sin_cli, 0, sizeof(struct sockaddr_in));
+
   dp->sin_srv.sin_family = AF_INET;
   dp->sin_srv.sin_port = htons(dp->srvport);
+  dp->sin_cli.sin_family = AF_INET;
+  dp->sin_cli.sin_port = htons(dp->cliport);
   dp->slen = sizeof(struct sockaddr_in);
+
   if(inet_aton(dp->srvaddr, &dp->sin_srv.sin_addr) == 0) {
     perror("CIN data port - inet_aton() failed!!");
+    return 1;
+  }
+
+  if(inet_aton(dp->cliaddr, &dp->sin_cli.sin_addr) == 0) {
+    perror("CIN data port - inet_aton() failed!!");
+    return 1;
+  }
+
+  /* Bind to the socket to get CIN traffic */
+
+  if((bind(dp->sockfd, (struct sockaddr *)&dp->sin_cli , sizeof(dp->sin_cli))) == -1){
+    perror("CIN data port - cannot bind");
     return 1;
   }
 
@@ -102,8 +132,9 @@ int cin_init_data_port(struct cin_port* dp,
 int cin_data_read(struct cin_port* dp, unsigned char* buffer){
   /* Read from the UDP stream */  
   return recvfrom(dp->sockfd, buffer, 
-                  CIN_DATA_MAX_MTU * sizeof(unsigned char), 
-                  0, NULL, NULL);
+                  CIN_DATA_MAX_MTU * sizeof(unsigned char), 0,
+                  (struct sockaddr*)&dp->sin_cli, 
+                  (socklen_t*)&dp->slen);
 }
 
 int cin_data_write(struct cin_port* dp, unsigned char* buffer, int buffer_len){
@@ -551,6 +582,11 @@ void *cin_data_monitor_thread(void){
 
 void *cin_data_listen_thread(void){
   struct cin_data_packet *buffer = NULL;
+  char* dummy = "DUMMY DATA";
+  
+  /* Send a packet to initialize the CIN */
+
+  cin_data_write(thread_data.dp, dummy, sizeof(dummy));
 
   while(1){
     /* Get the next element in the fifo */
