@@ -6,7 +6,7 @@ CFLAGS+=-I..
 
 all: cindump
 
-cin_test: cindump.o
+cin_test: cindump.o ../cin.h ../libcin.a
 
 clean:
 	rm -f *.o

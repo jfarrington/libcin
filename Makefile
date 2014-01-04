@@ -6,10 +6,12 @@ LDLIBS=-lpthread
 
 SUBDIRS=control data tests utils
 
-LIBHEADERS=control/cin_api.h \
-           control/cin_register_map.h \
-           data/cindata.h
-LIBSOURCES=control/cin_api.c data/cindata.c
+LIBHEADERS=control/cin_register_map.h \
+           data/descramble_block.h \
+           cin.h
+
+LIBSOURCES=control/cin_api.c data/cindata.c data/fifo.c
+
 LIBOBJECTS=$(LIBSOURCES:.c=.o)
 
 .PHONY : clean subdirs $(SUBDIRS)
@@ -20,7 +22,7 @@ export
 all: control data libcin tests utils
 
 # create dynamically and statically-linked libs.
-libcin: $(LIBOBJECTS) $(LIBSOURCES)
+libcin: $(LIBOBJECTS) $(LIBSOURCES) $(LIBHEADERS)
 	$(AR) -rcs lib/$@.a $(LIBOBJECTS)
 #$(CC) $(CFLAGS) -fpic -shared -o lib/$@.so $(LIBSOURCES)
 
