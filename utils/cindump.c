@@ -7,6 +7,7 @@
 #include <tiffio.h>
 
 #include "cin.h"
+#include "lz4.h"
 
 int main(int argc, char *argv[]){
 
@@ -47,6 +48,10 @@ int main(int argc, char *argv[]){
     exit(1);
   }
 
+  char* buffer;
+  buffer = malloc(sizeof(char) * CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH);
+  int size;
+
   while(1){
     frame = cin_data_get_next_frame();
     if(tiff_output){
@@ -71,16 +76,21 @@ int main(int argc, char *argv[]){
     } else {
       sprintf(filename, "frame%08d.bin", frame->number);
 
+      /* Compress stream */
+
+      size = LZ4_compress((char *)frame->data, buffer, 2 * CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH);
+
       fp = fopen(filename, "w");
       if(fp){
-        fwrite(frame->data, sizeof(uint16_t),
-               CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH, fp);
+        //fwrite(frame->data, sizeof(uint16_t),
+        //       CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH, fp);
+        fwrite(buffer, sizeof(char), size, fp);
         fclose(fp);
       }
 
     }
 
-    cin_data_release_frame();
+    cin_data_release_frame(1);
   }
 
   cin_data_wait_for_threads();
