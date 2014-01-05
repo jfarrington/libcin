@@ -9,11 +9,9 @@ int descramble_image(uint16_t *image_out, uint16_t *image_in,
 int main(void){
   uint16_t *in;
   uint16_t *out;
-  uint32_t *store;
+  uint32_t *store_f, *store_r;
   uint32_t i,j;
   uint64_t height = 964, width = 1152, pixels; 
-
-  int forward = 0;
 
   FILE *fp;
 
@@ -21,8 +19,10 @@ int main(void){
 
   in = malloc(sizeof(uint16_t) * pixels);
   out = malloc(sizeof(uint16_t) * pixels);
-  store = malloc(sizeof(uint32_t) * pixels);
-  memset(store, 0, sizeof(uint32_t) * pixels);
+  store_f = malloc(sizeof(uint32_t) * pixels);
+  store_r = malloc(sizeof(uint32_t) * pixels);
+  memset(store_f, 0, sizeof(uint32_t) * pixels);
+  memset(store_r, 0, sizeof(uint32_t) * pixels);
 
   for(i = 0;i < pixels; i++){
     memset(in, 0, sizeof(uint16_t) * pixels);
@@ -34,23 +34,20 @@ int main(void){
 
     for(j = 0;j<pixels; j++){
       if(out[j] == 1){
-        if(forward){
-          store[i] = j;
-        } else {
-          store[i] = i;
-        }
-        fprintf(stderr, "%ld,%ld\n", (long int)i,(long int)j);
+        store_f[i] = j;
+        store_r[i] = i;
+        //fprintf(stderr, "%ld,%ld\n", (long int)i,(long int)j);
         continue;
       }
     }
   }
 
-  if(forward){
-    fp = fopen("descramble_mapi_forward.bin", "w");
-  } else {
-    fp = fopen("descramble_map_reverse.bin", "w");
-  }
-  fwrite(store, sizeof(uint32_t), pixels, fp);
+  fp = fopen("descramble_mapi_forward.bin", "w");
+  fwrite(store_f, sizeof(uint32_t), pixels, fp);
+  fclose(fp);
+
+  fp = fopen("descramble_map_reverse.bin", "w");
+  fwrite(store_r, sizeof(uint32_t), pixels, fp);
   fclose(fp);
 
   return(0);
