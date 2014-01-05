@@ -1,12 +1,14 @@
-LDFLAGS+=-L../lib
-LDLIBS+=-lcin -ltiff
+include ../CONFIG
+
+LDFLAGS+=-L../lib 
+LDLIBS+=-lcin -ltiff -llz4
 CFLAGS+=-I..
 
 .PHONY : clean
 
 all: cindump
 
-cin_test: cindump.o ../cin.h ../libcin.a
+cindump: cindump.o ../lib/libcin.a
 
 clean:
 	rm -f *.o

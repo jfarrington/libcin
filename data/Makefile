@@ -1,3 +1,5 @@
+include ../CONFIG
+
 CFLAGS+=-I..
 
 .PHONY : clean 
