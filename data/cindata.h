@@ -24,7 +24,7 @@ struct cin_data_thread_data {
   struct cin_port* dp; 
 
   /* Statistics */
-  double framerate;
+  struct timespec framerate;
   unsigned long int dropped_packets;
   unsigned long int mallformed_packets;
   uint16_t last_frame;
@@ -34,7 +34,7 @@ struct cin_data_thread_data {
 struct cin_data_packet {
   unsigned char *data;
   int size;
-  struct timeval timestamp;
+  struct timespec timestamp;
 };
 
 /* Templates for functions */

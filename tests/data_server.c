@@ -136,9 +136,10 @@ int start_server(udp_packet *packets, int num_packets, char* host, int port, lon
       sendto(s, packet_p->data, packet_p->len, 0, 
              (struct sockaddr*) &dest_addr, sizeof(dest_addr));
       packet_p++;
+      //nanosleep(&delay_time, NULL);
     }
-    nanosleep(&delay_time, NULL);
     frame_num++;
+    nanosleep(&delay_time,NULL);
   }
 
   close(s);

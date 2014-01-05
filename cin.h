@@ -41,7 +41,7 @@ struct cin_port {
 struct cin_data_frame {
   uint16_t *data;
   uint16_t number;
-  struct timeval timestamp;
+  struct timespec timestamp;
 };
 
 
@@ -70,6 +70,6 @@ void cin_data_wait_for_threads(void);
 int cin_data_stop_threads(void);
 
 struct cin_data_frame* cin_data_get_next_frame(void);
-void cin_data_release_frame(void);
+void cin_data_release_frame(int free_mem);
 
 #endif

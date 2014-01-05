@@ -11,7 +11,6 @@
 #include <arpa/inet.h>
 #include <linux/filter.h>
 #include <pthread.h>
-#include <sys/time.h>
 #include <stdint.h>
 #include <unistd.h>
 #include <time.h>
@@ -165,9 +164,13 @@ int cin_data_init(void){
 
   /* Packet FIFO */
 
-  if(fifo_init(thread_data.packet_fifo, sizeof(struct cin_data_packet), 20) == FALSE){
+  if(fifo_init(thread_data.packet_fifo, sizeof(struct cin_data_packet), 20000) == FALSE){
     return 1;
   }
+
+  /* For the packet fifo we allocate the memory here
+     and set the size to zero. This means that we reserve a
+     block of memory */
 
   struct cin_data_packet *p;
   p = (struct cin_data_packet*)(thread_data.packet_fifo->data);
@@ -183,20 +186,25 @@ int cin_data_init(void){
 
   /* Frame FIFO */
 
-  if(fifo_init(thread_data.frame_fifo, sizeof(struct cin_data_frame), 200) == FALSE){
+  if(fifo_init(thread_data.frame_fifo, sizeof(struct cin_data_frame), 20000) == FALSE){
     return 1;
   }
+
+  /* For the frame fifo we just initialize the elements but do not
+     allocate the memory for the frame. This ensures that we don't use
+     loads of memory on the host and can have a fairly dynamic buffer */ 
 
   struct cin_data_frame *q;
   q = (struct cin_data_frame*)(thread_data.frame_fifo->data);
   for(i=0;i<thread_data.frame_fifo->size;i++){
+    //q->data              = (uint16_t *)NULL;  
     q->data = malloc(sizeof(uint16_t) * CIN_DATA_FRAME_WIDTH * CIN_DATA_FRAME_HEIGHT);
-    if(!q->data){
+    if(q->data == NULL){
       return 1;
     }
-    q->number = 0;
-    q->timestamp.tv_sec = 0;
-    q->timestamp.tv_usec = 0;
+    q->number            = 0;
+    q->timestamp.tv_sec  = 0;
+    q->timestamp.tv_nsec = 0;
     q++;
   }
 
@@ -204,7 +212,6 @@ int cin_data_init(void){
 
   thread_data.mallformed_packets = 0;
   thread_data.dropped_packets = 0;
-  thread_data.framerate = 0;
 
   /* Setup Mutexes */
 
@@ -271,34 +278,27 @@ void *cin_data_assembler_thread(void){
 #ifdef __DESCRAMBLE__
   /* Descramble Map */
   uint32_t *ds_map; 
-  uint32_t *ds_map_p;
+  uint32_t *ds_map_p, *ds_map_p_end;
   long int i;
+  ds_map = (uint32_t*)descramble_map;
+  ds_map_p = ds_map;
+  ds_map_p_end = ds_map + (descramble_map_len-1);
 #else
   /* Pointer to frame */
   uint16_t *frame_p;
+  frame_p = frame->data;
 #endif
 
   long int byte_count = 0;
 
-  struct timeval last_frame_timestamp = {0,0};
-  struct timeval this_frame_timestamp = {0,0};
-
-#ifdef __DESCRAMBLE__
-  /* Set descramble map */
-  ds_map = (uint32_t*)descramble_map;
-  ds_map_p = ds_map;
-#endif
+  struct timespec last_frame_timestamp = {0,0};
+  struct timespec this_frame_timestamp = {0,0};
 
   /* Get first frame pointer from the buffer */
 
   pthread_mutex_lock(frame_mutex);
   frame = (struct cin_data_frame*)fifo_get_head(thread_data.frame_fifo);
   pthread_mutex_unlock(frame_mutex);
-
-#ifndef __DESCRAMBLE__
-  /* set frame_p to the start of the frame */
-  frame_p = frame->data;
-#endif
 
   while(1){
 
@@ -317,7 +317,7 @@ void *cin_data_assembler_thread(void){
       /* Next lets check the magic number of the packet */
       header = *((uint64_t *)buffer_p) & CIN_DATA_MAGIC_PACKET_MASK; 
 
-      if(header == CIN_DATA_MAGIC_PACKET) {; 
+      if(header == CIN_DATA_MAGIC_PACKET) { 
         
         /* First byte of frame header is the packet no*/
         /* Bytes 7 and 8 are the frame number */ 
@@ -333,10 +333,11 @@ void *cin_data_assembler_thread(void){
           /* We have a new frame */
 
           /* Lock the mutex and get the next frame buffer */
+
           pthread_mutex_lock(frame_mutex);
           frame = (struct cin_data_frame*)fifo_get_head(thread_data.frame_fifo);
           pthread_mutex_unlock(frame_mutex);
-         
+
 #ifdef __DESCRAMBLE__
           /* Reset the descramble map pointer */
           ds_map_p = ds_map;
@@ -350,17 +351,10 @@ void *cin_data_assembler_thread(void){
           last_packet = -1;
           byte_count = 0;
           
-          /* The following is used for calculating rates */
-          last_frame_timestamp.tv_sec  = this_frame_timestamp.tv_sec;
-          last_frame_timestamp.tv_usec = this_frame_timestamp.tv_usec;
-          this_frame_timestamp.tv_sec  = buffer->timestamp.tv_sec;
-          this_frame_timestamp.tv_usec = buffer->timestamp.tv_usec; 
+          last_frame_timestamp  = this_frame_timestamp;
+          this_frame_timestamp  = buffer->timestamp;
 
-          thread_data.framerate = this_frame_timestamp.tv_sec - last_frame_timestamp.tv_sec;
-          thread_data.framerate = ((double)(this_frame_timestamp.tv_usec - last_frame_timestamp.tv_usec) * 1e-6);
-          if(thread_data.framerate != 0){
-            thread_data.framerate = 1 / thread_data.framerate;
-          }
+          thread_data.framerate = timespec_diff(last_frame_timestamp,this_frame_timestamp);
         }
 
         /* Predict the next packet number */
@@ -383,6 +377,9 @@ void *cin_data_assembler_thread(void){
           for(i=0;i<(CIN_DATA_PACKET_LEN * skipped_packets / 2);i++){
             *(frame->data + *ds_map_p) = CIN_DATA_DROPPED_PACKET_VAL;
             ds_map_p++;
+            if(ds_map_p >= ds_map_p_end){
+              fprintf(stderr, "\n\n\n\n\nSending data out of bounds!!!!!!\n\n\n\n\n");
+            }
           }
 #else
           memset(frame_p, CIN_DATA_DROPPED_PACKET_VAL, 
@@ -396,6 +393,13 @@ void *cin_data_assembler_thread(void){
 
 #ifdef __DESCRAMBLE__
           /* Swap endienness of packet and copy to frame */
+          /* 
+             NOTE : This could be done a bit better is the descramble
+             map was made up of char with the swap of endienness implicitly
+             in the map. This would avoid the left shift and the addition
+             however this would make the loop run twice as fast. This should
+             be checked to see which is fastest.
+          */
           for(i=0;i<(buffer_len / 2);i++){
             *(frame->data + *ds_map_p) = (*buffer_p << 8) + *(buffer_p + 1);
             /* Advance descramble map by 1 and buffer by 2 */ 
@@ -404,7 +408,7 @@ void *cin_data_assembler_thread(void){
           }
 #else
           memcpy(frame_p, (uint16_t*)buffer_p, buffer_len);
-          frame_p += buffer_len/2;
+          frame_p += buffer_len / 2;
 #endif
           byte_count += buffer_len;
         }
@@ -454,8 +458,11 @@ void *cin_data_assembler_thread(void){
 
 void *cin_data_monitor_thread(void){
   fprintf(stderr, "\033[?25l");
+  double framerate;
 
   while(1){
+    framerate = 1.0 / ((double)thread_data.framerate.tv_nsec * 1e-9);
+
     fprintf(stderr, "Last frame %d\n", (unsigned int)thread_data.last_frame);
 
     fprintf(stderr, "Packet buffer is %6.2f %% full. Spool buffer is %6.2f %% full.\n",
@@ -463,7 +470,7 @@ void *cin_data_monitor_thread(void){
             fifo_percent_full(thread_data.frame_fifo));
     
     fprintf(stderr, "Framerate = %6.1f s^-1 : Dropped packets %10ld : Mallformed packets %6ld\r",
-            thread_data.framerate, thread_data.dropped_packets, thread_data.mallformed_packets);
+            framerate, thread_data.dropped_packets, thread_data.mallformed_packets);
     fprintf(stderr, "\033[A\033[A"); /* Move up 2 lines */
     sleep(0.75);
   }
@@ -486,7 +493,7 @@ void *cin_data_listen_thread(void){
     pthread_mutex_unlock(packet_mutex);
     
     buffer->size = cin_data_read(thread_data.dp, buffer->data);
-    gettimeofday(&buffer->timestamp, NULL);
+    clock_gettime(CLOCK_REALTIME, &buffer->timestamp);
 
     if (buffer->size > 1024){
       pthread_mutex_lock(packet_mutex);
@@ -515,9 +522,14 @@ struct cin_data_frame* cin_data_get_next_frame(void){
   return frame;
 }
 
-void cin_data_release_frame(void){
+void cin_data_release_frame(int free_mem){
   /* Advance the fifo */
+  struct cin_data_frame* frame;
   pthread_mutex_lock(frame_mutex);
+  //if(free_mem){
+  //  frame = (struct cin_data_frame*)fifo_get_tail(thread_data.frame_fifo);
+  //  free(frame->data);
+  //}
   fifo_advance_tail(thread_data.frame_fifo);
   pthread_mutex_unlock(frame_mutex);
 }
@@ -542,7 +554,3 @@ struct timespec timespec_diff(struct timespec start, struct timespec end){
   return temp;
 }
 
-void timespec_copy(struct timespec *dest, struct timespec *src){
-  dest->tv_sec = src->tv_sec;
-  dest->tv_sec = src->tv_nsec;
-}
