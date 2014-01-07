@@ -42,7 +42,7 @@ int main(void){
     }
   }
 
-  fp = fopen("descramble_mapi_forward.bin", "w");
+  fp = fopen("descramble_map_forward.bin", "w");
   fwrite(store_f, sizeof(uint32_t), pixels, fp);
   fclose(fp);
 

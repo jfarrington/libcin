@@ -14,6 +14,11 @@ make_descramble_map: make_descramble_map.o
 
 cin_test: cin_test.o ../lib/libcin.a
 
+.PHONY : maps
+maps: descramble_map_forward.bin descramble_map_reverse.bin
+	xxd -i descramble_map_forward.bin > descramble_map_forward.h
+	xxd -i descramble_map_reverse.bin > descramble_map_reverse.h
+
 clean:
 	rm -f *.o
 	rm -f data_server

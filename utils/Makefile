@@ -1,8 +1,12 @@
 include ../CONFIG
 
 LDFLAGS+=-L../lib 
-LDLIBS+=-lcin -ltiff -llz4
+LDLIBS+=-lcin -ltiff
 CFLAGS+=-I..
+
+#For testing compression uncomment
+#LDLIBS+=-llz4
+#CFLAGS+=-D__COMPRESS__
 
 .PHONY : clean
 

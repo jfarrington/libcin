@@ -7,7 +7,9 @@
 #include <tiffio.h>
 
 #include "cin.h"
-#include "lz4.h"
+#ifdef __COMPRESS__
+  #include "lz4.h"
+#endif
 
 int main(int argc, char *argv[]){
 
@@ -75,16 +77,16 @@ int main(int argc, char *argv[]){
 
     } else {
       sprintf(filename, "frame%08d.bin", frame->number);
-
-      /* Compress stream */
-
-      size = LZ4_compress((char *)frame->data, buffer, 2 * CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH);
-
       fp = fopen(filename, "w");
       if(fp){
-        //fwrite(frame->data, sizeof(uint16_t),
-        //       CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH, fp);
+        /* Compress stream */
+#ifdef __COMPRESS__
+        size = LZ4_compress((char *)frame->data, buffer, 2 * CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH);
         fwrite(buffer, sizeof(char), size, fp);
+#else      
+        fwrite(frame->data, sizeof(uint16_t),
+               CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH, fp);
+#endif
         fclose(fp);
       }
 
