@@ -44,16 +44,63 @@ struct cin_data_frame {
   struct timespec timestamp;
 };
 
-
 /* prototypes */
+/**************************** UDP Socket ******************************/
 int cin_init_ctl_port(struct cin_port* cp, char* ipaddr, uint16_t port);
+int cin_close_ctl_port(struct cin_port* cp);
+
+/************************* CIN Read/Write *****************************/
 uint16_t cin_ctl_read(struct cin_port* cp, uint16_t reg);
 int cin_ctl_write(struct cin_port* cp, uint16_t reg, uint16_t val);
-int cin_shutdown(struct cin_port* cp);
+											/*TODO - implement write verification procedure */
+int cin_stream_write(struct cin_port* cp, char* val,int size);
+											/*TODO - implement write verification procedure */
+/********************** CIN PowerUP/PowerDown *************************/
+int cin_on(struct cin_port* cp);          			//Power ON CIN
+int cin_off(struct cin_port* cp);        				//Power OFF CIN
+int cin_fp_on(struct cin_port* cp);      				//Power ON CIN front Panel
+int cin_fp_off(struct cin_port* cp);    				//Power OFF CIN front Panel
 
-void cin_power_up();
-void cin_power_down();
-void cin_report_power_status();
+/******************* CIN Configuration/Status *************************/
+int cin_load_config(struct cin_port* cp,char *filename);		//Load CIN Configuration File 
+																					/*TODO:-Check that file is loaded properly*/
+int cin_load_firmware(struct cin_port* cp,char *filename);  //Load CIN Firmware Configuration
+																					/*TODO:-Check that file is loaded properly*/
+int cin_set_fclk_125mhz(struct cin_port* cp); 	     				//Set CIN clocks to 125MHz
+																					/*TODO:-Check that clock is properlly set*/
+int cin_get_fclk_status(struct cin_port* cp);   						//Get CIN clock status  		
+																					/*TODO:-Incomplete,Check Boolean comparisons*/
+int cin_get_cfg_fpga_status(struct cin_port* cp);					//Get CIN FPGA status 		
+																					/*TODO:-Check Boolean comparisons*/
+int cin_get_power_status(struct cin_port* cp);					//Get Camera/CIN power Status
+
+/**************************** CIN Control *****************************/
+int cin_set_bias(struct cin_port* cp,int val);   		//Turn on/off camera CCD bias
+										//Input:val={1-ON,0-OFF}
+																				
+int cin_set_clocks(struct cin_port* cp,int val);  	//Turn on/off camera clocks
+								    //Input:val={1-ON,0-OFF}
+
+int cin_set_trigger(struct cin_port* cp,int val);  	//Set trigger source
+										//Input:val={0-Internal, 1-External1, 2-External2, 3-External 1 or 2}
+
+int cin_get_trigger_status (struct cin_port* cp);  //Get trigger source status
+										//Return:{0-Internal, 1-External1, 2-External2, 3-External 1 or 2}*/
+
+int cin_set_exposure_time(struct cin_port* cp,float e_time);  //Set the Camera exposure time
+				 	 					//Input:e_time (ms)					/*TODO:-Malformed packet when MSB=0x0000*/
+
+int cin_set_trigger_delay(struct cin_port* cp,float t_time);  //Set the trigger delay time
+					    			//Input:t_time (us)					/*TODO:-Malformed packet when MSB=0x0000*/
+
+int cin_set_cycle_time(struct cin_port* cp,float c_time);	    //Set the Camera cyle time time
+					    			//Input:c_time (ms)					/*TODO:-Malformed packet when MSB=0x0000*/
+
+/************************* Frame Acquistion *****************************/
+int cin_set_frame_count_reset(); 			//Sets CIN frame counter to 0
+
+/****************************** Testing *********************************/
+int cin_test_cfg_leds(); 	        		//Flash configuration Leds in sequence	
 
 
 /* cindata prototypes */
