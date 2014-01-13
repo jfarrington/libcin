@@ -15,8 +15,7 @@
 
 #define MAX_PACKETS 4000
 
-extern unsigned char descramble_map_forward_bin[];
-extern unsigned int  descramble_map_forward_bin_len;
+#include "descramble_map.h"
 
 int main(int argc, char *argv[]){
   udp_packet *packet;
