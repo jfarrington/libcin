@@ -11,7 +11,8 @@ LIBHEADERS=control/cin_register_map.h \
            data/descramble_block.h \
            cin.h
 
-LIBSOURCES=control/cin_api.c data/cindata.c data/fifo.c
+LIBSOURCES=control/cin_api.c data/cindata.c data/fifo.c \
+           data/descramble_map_forward.c
 
 LIBOBJECTS=$(LIBSOURCES:.c=.o)
 
