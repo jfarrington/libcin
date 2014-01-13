@@ -132,7 +132,7 @@ uint16_t cin_ctl_read(struct cin_port* cp, uint16_t reg) {
     cin_set_sock_timeout(cp);
 
     buf = ntohl(buf);
-    return (uint16_t)(buf & 0x0000ffff);
+    return (uint16_t)(buf);
 }
 
 /******************* CIN PowerUP/PowerDown *************************/
