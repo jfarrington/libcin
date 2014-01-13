@@ -10,10 +10,13 @@
 #include <arpa/inet.h>
 #include <time.h>
 
+#include "cin.h"
 #include "data_server.h"
-#include "scrambled_frame.h"
 
 #define MAX_PACKETS 4000
+
+extern unsigned char descramble_map_forward_bin[];
+extern unsigned int  descramble_map_forward_bin_len;
 
 int main(int argc, char *argv[]){
   udp_packet *packet;
@@ -46,12 +49,54 @@ int main(int argc, char *argv[]){
     }
   }
 
+  uint16_t *frame;
+  unsigned char *scrambled_frame;
+  frame = malloc(sizeof(uint16_t) * CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH);
+  scrambled_frame = malloc(sizeof(unsigned char) * 2 * CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH);
+  if(!frame || !scrambled_frame){
+    perror("Cannot allocate frame data.");
+    exit(1);
+  }
+
+  make_test_pattern(frame, CIN_DATA_FRAME_HEIGHT, CIN_DATA_FRAME_WIDTH);
+  scramble_image(scrambled_frame, frame, 
+                 CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH);
+
+  fprintf(stderr, "image size = %d\n", (int)(CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH));
+
   num_packets = setup_packets(&packet, CIN_PACKET_LEN, 
-                              scrambled_frame, scrambled_frame_len - 312);
+                              scrambled_frame, 
+                              (CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH * 2) - 312);
+
+  fprintf(stderr, "num packets = %d\n", num_packets);
 
   start_server(packet, num_packets, host, port, delay);
 
   return(0);
+}
+
+int make_test_pattern(uint16_t *data, int height, int width){
+  int i,j;
+  for(i=0;i<width;i++){
+    for(j=0;j<height;j++){
+      data[(j * width) + i] = (uint16_t)((1000*j)+(1000*i));
+    }
+  }
+  return(0);
+}
+
+int scramble_image(unsigned char* stream, uint16_t *image, int size){
+  uint32_t *scramble;
+  scramble = (uint32_t*)descramble_map_forward_bin;
+
+  uint16_t *stream_p = (uint16_t*)stream;
+  int i;
+  for(i=0;i<size;i++){
+    *stream_p = (uint16_t)((image[*scramble] << 8) | (image[*scramble] >> 8));
+    stream_p++;
+    scramble++;
+  }
+  return 0;
 }
 
 int setup_packets(udp_packet **packets, int packet_size, 
@@ -68,7 +113,7 @@ int setup_packets(udp_packet **packets, int packet_size,
   stream_p = stream;
   packet_p = *packets;
   while(bytes_left > 0){
-    packet_p->data = malloc(CIN_MAX_MTU * sizeof(unsigned char));
+    packet_p->data = malloc(CIN_DATA_MAX_MTU * sizeof(unsigned char));
     if(!packet_p->data){
       return 0;
     }
@@ -106,7 +151,7 @@ int start_server(udp_packet *packets, int num_packets, char* host, int port, lon
   dest_addr.sin_family = AF_INET;
   dest_addr.sin_port   = htons(port);
   if(host == NULL){
-    inet_pton(AF_INET, "10.0.5.23", &dest_addr.sin_addr);
+    inet_pton(AF_INET, "10.23.5.1", &dest_addr.sin_addr);
   } else {
     inet_pton(AF_INET, host, &dest_addr.sin_addr);
   }
@@ -135,6 +180,7 @@ int start_server(udp_packet *packets, int num_packets, char* host, int port, lon
       packet_p->data[7] = (char)(frame_num & 0xFF);
       sendto(s, packet_p->data, packet_p->len, 0, 
              (struct sockaddr*) &dest_addr, sizeof(dest_addr));
+      //printf("%d,%d,%d \n", i, packet_p->len, packet_p->data[0]);
       packet_p++;
       //nanosleep(&delay_time, NULL);
     }
