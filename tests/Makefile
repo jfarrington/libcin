@@ -8,7 +8,8 @@ CFLAGS+=-I..
 
 all: data_server make_descramble_map cin_test 
 
-data_server: data_server.o data_server.h descramble_map_forward.o
+data_server: data_server.o data_server.h \
+             ../bindata/descramble_map_forward.o
 
 make_descramble_map: make_descramble_map.o
 
