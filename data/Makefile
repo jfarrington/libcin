@@ -1,6 +1,6 @@
 include ../CONFIG
 
-CFLAGS+=-I..
+CFLAGS+=-I.. -I../bindata
 
 .PHONY : clean 
 
