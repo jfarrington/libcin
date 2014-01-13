@@ -14,11 +14,15 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <time.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 #include "cin.h"
 #include "fifo.h"
 #include "cindata.h"
-#include "descramble_block.h"
+
+extern unsigned char descramble_map_forward_bin[];
+extern unsigned int  descramble_map_forward_bin_len;
 
 /* -----------------------------------------------------------------------------------------
  *
@@ -119,10 +123,10 @@ int cin_init_data_port(struct cin_port* dp,
 
   /* Set the receieve buffers for the socket */
 
-  if(setsockopt(dp->sockfd, SOL_SOCKET, SO_RCVBUF, 
+  /*if(setsockopt(dp->sockfd, SOL_SOCKET, SO_RCVBUF, 
                 &dp->rcvbuf, sizeof(dp->rcvbuf)) == -1){
     perror("CIN data port - unable to set receive buffer :");
-  } 
+  } */
 
   thread_data.dp = dp;
   return 0;
@@ -164,7 +168,7 @@ int cin_data_init(void){
 
   /* Packet FIFO */
 
-  if(fifo_init(thread_data.packet_fifo, sizeof(struct cin_data_packet), 20000) == FALSE){
+  if(fifo_init(thread_data.packet_fifo, sizeof(struct cin_data_packet), 2000000) == FALSE){
     return 1;
   }
 
@@ -225,6 +229,12 @@ int cin_data_init(void){
   pthread_cond_init(packet_signal, NULL);
   pthread_cond_init(frame_signal, NULL);
 
+  /* Try to nice process */
+
+  if(setpriority(PRIO_PROCESS, 0, -20)){
+    perror("Unable to renice process");
+  }
+
   /* Start threads */
 
   pthread_create(&threads[0], NULL, (void *)cin_data_listen_thread, NULL);
@@ -277,12 +287,10 @@ void *cin_data_assembler_thread(void){
 
 #ifdef __DESCRAMBLE__
   /* Descramble Map */
-  uint32_t *ds_map; 
-  uint32_t *ds_map_p, *ds_map_p_end;
+  uint32_t *ds_map = (uint32_t*)descramble_map_forward_bin;; 
+  uint32_t *ds_map_p;
   long int i;
-  ds_map = (uint32_t*)descramble_map;
   ds_map_p = ds_map;
-  ds_map_p_end = ds_map + (descramble_map_len-1);
 #else
   /* Pointer to frame */
   uint16_t *frame_p;
@@ -332,6 +340,27 @@ void *cin_data_assembler_thread(void){
         if(this_frame != last_frame){
           /* We have a new frame */
 
+#ifdef __DEBUG__
+          if(thread_data.last_frame != last_frame){
+            fprintf(stderr, "\n\n\n\nSkipped frame\n\n\n\n\n");
+          }
+#endif
+
+          /* Push out the last frame */
+
+          if(frame){
+            frame->number = this_frame;
+            frame->timestamp = this_frame_timestamp;
+            thread_data.last_frame = this_frame;
+
+            pthread_mutex_lock(frame_mutex);
+            fifo_advance_head(thread_data.frame_fifo);
+            pthread_cond_signal(frame_signal);
+            pthread_mutex_unlock(frame_mutex);
+
+            frame = NULL;
+          }
+
           /* Lock the mutex and get the next frame buffer */
 
           pthread_mutex_lock(frame_mutex);
@@ -377,9 +406,6 @@ void *cin_data_assembler_thread(void){
           for(i=0;i<(CIN_DATA_PACKET_LEN * skipped_packets / 2);i++){
             *(frame->data + *ds_map_p) = CIN_DATA_DROPPED_PACKET_VAL;
             ds_map_p++;
-            if(ds_map_p >= ds_map_p_end){
-              fprintf(stderr, "\n\n\n\n\nSending data out of bounds!!!!!!\n\n\n\n\n");
-            }
           }
 #else
           memset(frame_p, CIN_DATA_DROPPED_PACKET_VAL, 
@@ -430,23 +456,8 @@ void *cin_data_assembler_thread(void){
 
       last_packet = this_packet;
 
-      /* Check for full image */
-
-      if(byte_count == CIN_DATA_FRAME_SIZE){
-        /* Advance the frame fifo and signal that a new frame
-           is avaliable. Perhaps there is a better way to do this? */
-        frame->number = this_frame;
-        frame->timestamp = this_frame_timestamp; /* taken from first packet */
-        thread_data.last_frame = this_frame;
-
-        pthread_mutex_lock(frame_mutex);
-        fifo_advance_head(thread_data.frame_fifo);
-        pthread_cond_signal(frame_signal);
-        pthread_mutex_unlock(frame_mutex);
-      }
-
     } else {
-      /* Buffer is empty - wait for next packet */
+      /* If there is a valid frame then push it out */
       pthread_mutex_lock(packet_mutex);
       pthread_cond_wait(packet_signal, packet_mutex);
       pthread_mutex_unlock(packet_mutex);
@@ -524,12 +535,7 @@ struct cin_data_frame* cin_data_get_next_frame(void){
 
 void cin_data_release_frame(int free_mem){
   /* Advance the fifo */
-  struct cin_data_frame* frame;
   pthread_mutex_lock(frame_mutex);
-  //if(free_mem){
-  //  frame = (struct cin_data_frame*)fifo_get_tail(thread_data.frame_fifo);
-  //  free(frame->data);
-  //}
   fifo_advance_tail(thread_data.frame_fifo);
   pthread_mutex_unlock(frame_mutex);
 }
