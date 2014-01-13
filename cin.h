@@ -21,7 +21,7 @@
 #define CIN_DATA_PACKET_LEN          8184
 #define CIN_DATA_FRAME_HEIGHT        1924
 #define CIN_DATA_FRAME_WIDTH         1152
-#define CIN_DATA_FRAME_SIZE          2220744
+#define CIN_DATA_FRAME_SIZE          4432584
 #define CIN_DATA_DROPPED_PACKET_VAL  0x0
 #define CIN_DATA_RCVBUF              0x200000
 
