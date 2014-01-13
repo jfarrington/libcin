@@ -20,9 +20,7 @@
 #include "cin.h"
 #include "fifo.h"
 #include "cindata.h"
-
-extern unsigned char descramble_map_forward_bin[];
-extern unsigned int  descramble_map_forward_bin_len;
+#include "descramble_map.h"
 
 /* -----------------------------------------------------------------------------------------
  *
