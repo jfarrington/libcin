@@ -2,8 +2,7 @@ include ../CONFIG
 
 CFLAGS+=-I..
 
-
-all: descramble_map_forward.o
+all: descramble_map_forward.o descramble_map_reverse.o
 
 descramble_map_forward.o: descramble_map_forward.c
 descramble_map_reverse.o: descramble_map_reverse.c
@@ -15,8 +14,5 @@ descramble_map_reverse.c: descramble_map_reverse.bin
 
 .PHONY : clean
 clean:
-	rm -f *.o
-	rm -f data_server
-	rm -f make_descramble_map
-
+	rm -f *.o *.c
 
