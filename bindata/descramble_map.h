@@ -1,4 +1,4 @@
-#ifdef  __DESCRAMBLE_MAP_H__
+#ifndef __DESCRAMBLE_MAP_H__
 #define __DESCRAMBLE_MAP_H__
 
 extern unsigned char descramble_map_forward_bin[];
