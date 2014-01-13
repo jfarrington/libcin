@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include "cin.h"
 
 int descramble_image(uint16_t *image_out, uint16_t *image_in,
                      uint64_t image_size_pixels, uint64_t image_height, uint64_t image_width);
@@ -11,7 +12,9 @@ int main(void){
   uint16_t *out;
   uint32_t *store_f, *store_r;
   uint32_t i,j;
-  uint64_t height = 964, width = 1152, pixels; 
+  uint64_t height = CIN_DATA_FRAME_HEIGHT;
+  uint64_t width = CIN_DATA_FRAME_WIDTH;
+  uint64_t pixels;
 
   FILE *fp;
 
@@ -35,7 +38,7 @@ int main(void){
     for(j = 0;j<pixels; j++){
       if(out[j] == 1){
         store_f[i] = j;
-        store_r[i] = i;
+        store_r[j] = i;
         //fprintf(stderr, "%ld,%ld\n", (long int)i,(long int)j);
         continue;
       }
