@@ -7,6 +7,10 @@
 #include <arpa/inet.h>
 #include <sys/time.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define CIN_CTL_IP                   "192.168.1.207"
 #define CIN_CTL_PORT                 49200
 
@@ -71,5 +75,9 @@ int cin_data_stop_threads(void);
 
 struct cin_data_frame* cin_data_get_next_frame(void);
 void cin_data_release_frame(int free_mem);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
