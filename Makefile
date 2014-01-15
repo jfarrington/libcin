@@ -4,8 +4,9 @@ all: control data libcin tests utils
 
 # create dynamically and statically-linked libs.
 libcin: 
+	test -d lib || mkdir lib
 	$(AR) -rcs lib/$@.a $(LIBOBJECTS)
-#	$(CC) $(CFLAGS) -fpic -shared -I. -o lib/$@.so $(LIBSOURCES)
+	$(CC) $(CFLAGS) -fpic -shared -I. -o lib/$@.so $(LIBSOURCES)
 
 $(SUBDIRS): 
 	$(MAKE) -C $@
@@ -13,7 +14,7 @@ $(SUBDIRS):
 .PHONY :clean
 clean:
 	-$(RM) -f *.o
-	-$(RM) -f lib/libcin.so lib/libcin.a
+	-$(RM) -rf lib
 	$(MAKE) -C data clean
 	$(MAKE) -C tests clean
 	$(MAKE) -C control clean
