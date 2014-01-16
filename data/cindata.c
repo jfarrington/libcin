@@ -170,44 +170,10 @@ int cin_data_init(void){
     return 1;
   }
 
-  /* For the packet fifo we allocate the memory here
-     and set the size to zero. This means that we reserve a
-     block of memory */
-
-  struct cin_data_packet *p;
-  p = (struct cin_data_packet*)(thread_data.packet_fifo->data);
-  long int i;
-  for(i=0;i<thread_data.packet_fifo->size;i++){
-    p->data = malloc(sizeof(unsigned char) * CIN_DATA_MAX_MTU);
-    if(p->data == NULL){
-      return 1;
-    }
-    p->size = 0;
-    p++;
-  }
-
   /* Frame FIFO */
 
   if(fifo_init(thread_data.frame_fifo, sizeof(struct cin_data_frame), 20000) == FALSE){
     return 1;
-  }
-
-  /* For the frame fifo we just initialize the elements but do not
-     allocate the memory for the frame. This ensures that we don't use
-     loads of memory on the host and can have a fairly dynamic buffer */ 
-
-  struct cin_data_frame *q;
-  q = (struct cin_data_frame*)(thread_data.frame_fifo->data);
-  for(i=0;i<thread_data.frame_fifo->size;i++){
-    //q->data              = (uint16_t *)NULL;  
-    q->data = malloc(sizeof(uint16_t) * CIN_DATA_FRAME_WIDTH * CIN_DATA_FRAME_HEIGHT);
-    if(q->data == NULL){
-      return 1;
-    }
-    q->number            = 0;
-    q->timestamp.tv_sec  = 0;
-    q->timestamp.tv_nsec = 0;
-    q++;
   }
 
   /* Set some defaults */

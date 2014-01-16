@@ -36,7 +36,7 @@ struct cin_data_thread_data {
 };
 
 struct cin_data_packet {
-  unsigned char *data;
+  unsigned char data[CIN_DATA_MAX_MTU];
   int size;
   struct timespec timestamp;
 };

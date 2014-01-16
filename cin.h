@@ -43,7 +43,7 @@ struct cin_port {
 };
 
 struct cin_data_frame {
-  uint16_t *data;
+  uint16_t data[CIN_DATA_FRAME_WIDTH * CIN_DATA_FRAME_HEIGHT];
   uint16_t number;
   struct timespec timestamp;
 };
