@@ -269,14 +269,8 @@ void *cin_data_assembler_thread(void){
   unsigned int this_frame = 0;
   unsigned int last_frame = -1;
   unsigned int this_packet = 0;
-  unsigned int last_packet = -1;
-  unsigned int skipped_packets = -1;
-  unsigned int next_packet;
-
-#ifdef __DEBUG__
-  uint64_t last_packet_header = 0;
-  uint64_t this_packet_header = 0;
-#endif
+  unsigned int last_packet = 0;
+  unsigned int this_packet_msb = 0;
 
   int buffer_len;
   unsigned char *buffer_p;
@@ -285,17 +279,10 @@ void *cin_data_assembler_thread(void){
 
 #ifdef __DESCRAMBLE__
   /* Descramble Map */
-  uint32_t *ds_map = (uint32_t*)descramble_map_forward_bin;; 
-  uint32_t *ds_map_p;
+  uint32_t *ds_map = (uint32_t*)descramble_map_forward_bin; 
+  uint32_t *ds_map_p = ds_map;
   long int i;
-  ds_map_p = ds_map;
-#else
-  /* Pointer to frame */
-  uint16_t *frame_p;
-  frame_p = frame->data;
 #endif
-
-  long int byte_count = 0;
 
   struct timespec last_frame_timestamp = {0,0};
   struct timespec this_frame_timestamp = {0,0};
@@ -327,9 +314,7 @@ void *cin_data_assembler_thread(void){
         
         /* First byte of frame header is the packet no*/
         /* Bytes 7 and 8 are the frame number */ 
-#ifdef __DEBUG__ 
-        this_packet_header = *(uint64_t*)buffer_p;
-#endif
+
         this_packet = *buffer_p; 
         buffer_p += 6;
         this_frame  = (*buffer_p << 8) + *(buffer_p + 1);
@@ -365,84 +350,46 @@ void *cin_data_assembler_thread(void){
           frame = (struct cin_data_frame*)fifo_get_head(thread_data.frame_fifo);
           pthread_mutex_unlock(frame_mutex);
 
-#ifdef __DESCRAMBLE__
-          /* Reset the descramble map pointer */
-          ds_map_p = ds_map;
-#else
-          /* Set the frame pointer to the start of the frame */
-          frame_p = frame->data;
-#endif
-
           /* Set all the last frame stuff */
           last_frame = this_frame;
-          last_packet = -1;
-          byte_count = 0;
+          last_packet = 0;
+          this_packet_msb = 0;
           
           last_frame_timestamp  = this_frame_timestamp;
           this_frame_timestamp  = buffer->timestamp;
 
           thread_data.framerate = timespec_diff(last_frame_timestamp,this_frame_timestamp);
+        } else { /* This frame is not last frame */
+          if(this_packet <= last_packet){
+            this_packet_msb += 0x100;
+          }
         }
 
-        /* Predict the next packet number */
-        next_packet = (last_packet + 1) & 0xFF;
-
-        if(this_packet != next_packet){
-          /* we have skipped packets! */
-          if(this_packet > next_packet){
-            skipped_packets = this_packet - next_packet;
-          } else {
-            skipped_packets = (256 - next_packet) + this_packet;
-          }
-
-          /* increment Dropped packet counter */
-          thread_data.dropped_packets += (unsigned long int)skipped_packets;
-          
-          /* Write zero values to dropped packet regions */
-          /* NOTE : We could use unused bits to do this better? */
 #ifdef __DESCRAMBLE__
-          for(i=0;i<(CIN_DATA_PACKET_LEN * skipped_packets / 2);i++){
-            *(frame->data + *ds_map_p) = CIN_DATA_DROPPED_PACKET_VAL;
-            ds_map_p++;
-          }
-#else
-          memset(frame_p, CIN_DATA_DROPPED_PACKET_VAL, 
-                 CIN_DATA_PACKET_LEN * skipped_packets / 2);
-          frame_p += CIN_DATA_PACKET_LEN * skipped_packets / 2;
-#endif
+        /* Swap endienness of packet and copy to frame */
+        /* 
+           NOTE : This could be done a bit better is the descramble
+           map was made up of char with the swap of endienness implicitly
+           in the map. This would avoid the left shift and the addition
+           however this would make the loop run twice as fast. This should
+           be checked to see which is fastest.
+        */
 
-          byte_count += CIN_DATA_PACKET_LEN * skipped_packets;
-
-        } else {
-
-#ifdef __DESCRAMBLE__
-          /* Swap endienness of packet and copy to frame */
-          /* 
-             NOTE : This could be done a bit better is the descramble
-             map was made up of char with the swap of endienness implicitly
-             in the map. This would avoid the left shift and the addition
-             however this would make the loop run twice as fast. This should
-             be checked to see which is fastest.
-          */
-          for(i=0;i<(buffer_len / 2);i++){
-            *(frame->data + *ds_map_p) = (*buffer_p << 8) + *(buffer_p + 1);
-            /* Advance descramble map by 1 and buffer by 2 */ 
-            ds_map_p++;
-            buffer_p += 2;
-          }
-#else
-          memcpy(frame_p, (uint16_t*)buffer_p, buffer_len);
-          frame_p += buffer_len / 2;
-#endif
-          byte_count += buffer_len;
+        ds_map_p = ds_map + ((this_packet + this_packet_msb) * CIN_DATA_PACKET_LEN / 2);
+        for(i=0;i<(buffer_len / 2);i++){
+          *(frame->data + *ds_map_p) = (*buffer_p << 8) + *(buffer_p + 1);
+          /* Advance descramble map by 1 and buffer by 2 */ 
+          buffer_p += 2;
+          ds_map_p ++;
         }
-      } else { 
+#else
+        frame_p = frame->data + (this_packet + this_packet_msb);
+        memcpy(frame_p, (uint16_t*)buffer_p, buffer_len);
+        frame_p += buffer_len / 2;
+#endif
+      } else { /* if not magic packet */ 
         thread_data.mallformed_packets++;
       } 
-
-#ifdef __DEBUG__ 
-      last_packet_header = this_packet_header;
-#endif
 
       /* Now we are done with the packet, we can advance the fifo */
 
