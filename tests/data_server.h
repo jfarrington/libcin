@@ -8,6 +8,8 @@
 extern "C" {
 #endif
 
+#define CIN_PACKET_LEN          8184
+#define CIN_UDP_DATA_HEADER     8
 
 typedef struct {
   unsigned char *data;
