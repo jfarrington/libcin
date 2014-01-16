@@ -69,8 +69,8 @@ int cin_load_firmware(struct cin_port* cp,char *filename);  //Load CIN Firmware 
 int cin_set_fclk_125mhz(struct cin_port* cp); 	     				//Set CIN clocks to 125MHz
 																					/*TODO:-Check that clock is properlly set*/
 int cin_get_fclk_status(struct cin_port* cp);   						//Get CIN clock status  		
-																					/*TODO:-Incomplete,Check Boolean comparisons*/
-int cin_get_cfg_fpga_status(struct cin_port* cp);					//Get CIN FPGA status 		
+																					/*TODO:-Check Boolean comparisons*/
+int cin_get_cfg_fpga_status(struct cin_port* cp);				//Get CIN FPGA status 		
 																					/*TODO:-Check Boolean comparisons*/
 int cin_get_power_status(struct cin_port* cp);					//Get Camera/CIN power Status
 

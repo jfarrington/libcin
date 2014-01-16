@@ -292,74 +292,103 @@ int cin_set_fclk_125mhz(struct cin_port* cp){
 	cin_ctl_write(cp,REG_CCDFCLKSELECT_REG,0x0000);
 	return 0;
 }
-/*TODO:-Incomplete,Check Boolean comparisons*/
+/*TODO:-Check Boolean comparisons*/
 int cin_get_fclk_status(struct cin_port* cp){ 
 	
-	uint32_t _val,_val7,_val8,_val9,_val10,_val11,_val12;
+	uint32_t _reg,_reg7,_reg8,_reg9,_reg10,_reg11,_reg12,_val7,_val8;
+	uint32_t _n1,interger,decimal;
+	uint32_t _regfclksel,_valfclksel;
 	printf("\n**** CIN FCLK Configuration ****\n");
 	cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB089);		
-	_val= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);//Is this an 8 element hex string??
-	printf("  FCLK OSC MUX SELECT : %#08X \n",_val);//Assumes 8 element hexstring
+	_reg= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);//Is this an 8 element hex string??
+	printf("  FCLK OSC MUX SELECT : %#08X \n",_reg);//Assumes 8 element hexstring
 
 	//The statements below assume an 8 element string and use hex elements 4 to 8 of string
-	if(_val & 0x000F0000){ //if(regval[4:5] == "F") 
+	if(_reg & 0x000F0000){ //if(regval[4:5] == "F") 
 		//# Freeze DCO
 		cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB189);
 		cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-		_val= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
-		if (_val != 0x80000000){//if (reg_val[6:] != "08") 
-			printf("  Status Reg : %#08X",_val);
+		_reg= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
+		if(_reg != 0x80000000){//if (reg_val[6:] != "08") 
+			printf("  Status Reg : %#08X",_reg);
+		}
+		cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB107);
+		cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+			_reg7= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
+	
+		cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB108);
+		cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+		_reg8= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
+
+		cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB109);
+		cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+		_reg9= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
+
+		cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB10A);
+		cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+		_reg10= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
+
+		cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB10B);
+		cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+		_reg11= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
+
+		cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB10C);
+		cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+		_reg12= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
+	
+		_val7 =(_reg7 &	0x000000FF);//bin_reg7 = bin(int(reg_val7[6:],16))[2:].zfill(8)
+		_val8 =(_reg8 &	0x000000FF);//bin_reg8 = bin(int(reg_val8[6:],16))[2:].zfill(8)
+	
+		if((_val7 & 0x00000000)==0x00000000){//if (bin_reg7[0:3] == "000")
+			printf("  FCLK HS Divider = 4\n");
+		}
+	 
+		if((_val7 & 0x00000000)==0x40000000){//if (bin_reg7[0:3] == "001")
+			printf("  FCLK HS Divider = 5\n");
+		}
+	
+		if((_val7 & 0x00000000)==0x40000000){//if (bin_reg7[0:3] == "010")
+			printf("  FCLK HS Divider = 6\n");
+		} 
+
+		_n1=(uint32_t)(_val7 & 0x0000001F)+(uint32_t)(_val8 & 0x000000C0);	//bin_n1 		= bin_reg7[3:8] + bin_reg8[0:2]//dec_n1 = int(bin_n1,2)
+
+		if (_n1%2 != 0){//if (dec_n1%2 != 0) 
+			_n1 = _n1 + 1;//dec_n1 = dec_n1 + 1
+		}
+		printf("  FCLK N1 Divider = %u",_n1);
+	
+		interger=(uint32_t)(_reg8 & 0x00000080) + (uint32_t)(_reg9 & 0x00000040);
+		decimal=(uint32_t)(_reg9 & 0x00000080) + (uint32_t)(_reg10 & 0x000000C0)+ (uint32_t)(_reg11 & 0x000000C0)+ (uint32_t)(_reg12 & 0x000000C0);
+		printf("  FCLK RFREQ = %u.%u",interger,decimal);////print "  FCLK RFREQ = " + reg_val8[7:] + reg_val9[6:7] + "." + reg_val9[7:] + reg_val10[6:] + reg_val11[6:] + reg_val12[6:]
+	
+		if(((_reg7 & 0x00000000) == 0x00000000) && _n1==8){//if(bin_reg7[0:3] == "000" and dec_n1 ==  8)
+			printf("  FCLK Frequency = 156 MHz\n");
+		}
+		else if(((_reg7 & 0x20000000) == 0x20000000) && _n1==10){//elif (bin_reg7[0:3] == "000" and dec_n1 == 10)  
+			printf( "  FCLK Frequency = 125 MHz\n");
+		}
+		else if(((_reg7 & 0x40000000) == 0x40000000) && _n1==4){//elif (bin_reg7[0:3] == "001" and dec_n1 ==  4) 
+			printf( "  FCLK Frequency = 250 MHz\n");
+		}
+		else{ 
+			printf("  FCLK Frequency UNKNOWN\n");
+		}
 	}
-	cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB107);
-	cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-	_val7= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
 	
-	cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB108);
-	cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-	_val8= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
+	else if(((_reg & 0x00000010) & 0xD0) == 0x20){//elif (str(int(regval[4:5])&1110) == "2") 
+		printf("  FCLK Frequency = 250 MHz\n"); 
+	}
+	else if(((_reg & 0x00000010) & 0xD0) == 0x60){//elif (str(int(regval[4:5])&1110) == "6") 
+		printf("  FCLK Frequency = 200 MHz\n"); 
+	}
+	else if(((_reg & 0x00000010) & 0xD0) == 0xA0){//elif (str(int(regval[4:5])&1110) == "A") 
+		printf("  FCLK Frequency = 125 MHz\n"); 
+	}
+	_regfclksel= cin_ctl_read(cp,REG_CCDFCLKSELECT_REG);
+	_valfclksel=(uint32_t)(_regfclksel & 0xFFFF);
+	printf("\n  CCD TIMING CONSTANT : 0x%X", _valfclksel);
 
-	cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB109);
-	cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-	_val9= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
-
-	cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB10A);
-	cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-	_val10= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
-
-	cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB10B);
-	cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-	_val11= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
-
-	cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB10C);
-	cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-	_val12= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
-	//****************HERE BE DRAGONS********************//
-	/*This is the Python script for this part of the code sequence. It converts Hex to binary and compares. Since it uses 3 bit comparisons, it is necessary to convert to binary.(Previous steps used direct Hex comparisons).  
-	bin_reg7 = bin(int(reg_val7[6:],16))[2:].zfill(8)
-	bin_reg8 = bin(int(reg_val8[6:],16))[2:].zfill(8)
-
-	if (bin_reg7[0:3] == "000") : print "  FCLK HS Divider = 4"
-	if (bin_reg7[0:3] == "001") : print "  FCLK HS Divider = 5"
-	if (bin_reg7[0:3] == "010") : print "  FCLK HS Divider = 6"
-
-	bin_n1 = bin_reg7[3:8] + bin_reg8[0:2]
-	dec_n1 = int(bin_n1,2)
-	
-	if (dec_n1%2 != 0) : dec_n1 = dec_n1 + 1
-	print "  FCLK N1 Divider = " + str(dec_n1)
-	print "  FCLK RFREQ = " + reg_val8[7:] + reg_val9[6:7] + "." + reg_val9[7:] + reg_val10[6:] + reg_val11[6:] + reg_val12[6:]
-	if   (bin_reg7[0:3] == "000" and dec_n1 ==  8) : print "  FCLK Frequency = 156 MHz"
-	elif (bin_reg7[0:3] == "000" and dec_n1 == 10) : print "  FCLK Frequency = 125 MHz"
-	elif (bin_reg7[0:3] == "001" and dec_n1 ==  4) : print "  FCLK Frequency = 250 MHz"
-	else : print "  FCLK Frequency UNKNOWN "*
-     elif (str(int(regval[4:5])&1110) == "2"): print "  FCLK Frequency = 250 MHz" //bitwise comparisons
-     elif (str(int(regval[4:5])&1110) == "6"): print "  FCLK Frequency = 200 MHz"
-     elif (str(int(regval[4:5])&1110) == "A"): print "  FCLK Frequency = 125 MHz"
-
-	regval = cin_functions.ReadReg( cin_register_map.REG_CCDFCLKSELECT_REG )
-	print "\n  CCD TIMING CONSTANT : 0x" + regval[4:]
-	time.sleep(0.1)"*/
-  }
   return 0;
 }
 /*TODO:-Check Boolean comparisons*/
