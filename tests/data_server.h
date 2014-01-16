@@ -3,12 +3,11 @@
 
 #include <stdint.h>
 
-#define CIN_PACKET_LEN          8184
-#define CIN_UDP_DATA_HEADER     8
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
 
 typedef struct {
   unsigned char *data;
