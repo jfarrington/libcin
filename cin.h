@@ -97,10 +97,10 @@ int cin_set_cycle_time(struct cin_port* cp,float c_time);	    //Set the Camera c
 					    			//Input:c_time (ms)					/*TODO:-Malformed packet when MSB=0x0000*/
 
 /************************* Frame Acquistion *****************************/
-int cin_set_frame_count_reset(); 			//Sets CIN frame counter to 0
+int cin_set_frame_count_reset(struct cin_port* cp); 			//Sets CIN frame counter to 0
 
 /****************************** Testing *********************************/
-int cin_test_cfg_leds(); 	        		//Flash configuration Leds in sequence	
+int cin_test_cfg_leds(struct cin_port* cp); 	        		//Flash configuration Leds in sequence	
 
 
 /* cindata prototypes */
