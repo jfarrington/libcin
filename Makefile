@@ -6,7 +6,7 @@ all: control data libcin tests utils
 libcin: 
 	test -d lib || mkdir lib
 	$(AR) -rcs lib/$@.a $(LIBOBJECTS)
-	$(CC) $(CFLAGS) -fpic -shared -I. -o lib/$@.so $(LIBSOURCES)
+#	$(CC) $(CFLAGS) -fpic -shared -I. -o lib/$@.so $(LIBSOURCES)
 
 $(SUBDIRS): 
 	$(MAKE) -C $@
