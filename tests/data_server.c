@@ -166,9 +166,22 @@ int start_server(udp_packet *packets, int num_packets, char* host, int port, lon
     return 1;
   }
 
+  long int sndbuf = 1024 * 1024 * 20;
+  if(setsockopt(s, SOL_SOCKET, SO_SNDBUF,
+                &sndbuf, sizeof(sndbuf)) == -1){
+    perror("CIN data port - unable to set receive buffer :");
+  }
+
+  socklen_t sndbuf_len = sizeof(sndbuf);
+  if(getsockopt(s, SOL_SOCKET, SO_SNDBUF,
+                &sndbuf, &sndbuf_len) == -1){
+    perror("CIN data port - unable to get receive buffer :");
+  }
+
   fprintf(stderr, "Remote host = %s\n", inet_ntop(AF_INET,&dest_addr.sin_addr, buffer, 256));
   fprintf(stderr, "Remote port = %d\n", port);
   fprintf(stderr, "Delay = %ld ns\n", delay_time.tv_nsec); 
+  fprintf(stderr, "Send Buffer = %ld Mb\n", sndbuf / (1024*1024));
 
   frame_num = 0;
 
