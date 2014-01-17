@@ -46,7 +46,7 @@ int main(int argc, char *argv[]){
   }
 
   /* Start the main routine */
-  if(cin_data_init()){
+  if(cin_data_init(2000000, 20000)){
     exit(1);
   }
 
