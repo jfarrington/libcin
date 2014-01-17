@@ -595,30 +595,30 @@ int cin_get_trigger_status (struct cin_port* cp){
 	
 	uint16_t _val;
 	int _state;
-	_val =cin_ctl_read(cp,REG_TRIGGERSELECT_REG); 
-	printf("  TRIGGER SELECT REG VALUE: %x\n",_val);
-	if (_val & 0x0000){
+	_val =cin_ctl_read(cp,REG_TRIGGERMASK_REG); 
+	//printf("  TRIGGERMASK REG VALUE: 0x%04x\n",_val);//DEBUG
+	if (_val == 0x0000){
 		_state=0;
 		printf("Trigger status is Internal\n");
 		return _state;
 	}
-	else if (_val & 0x0001){
+	else if (_val == 0x0001){
 		_state=1;
 		printf("Trigger status is External 1\n");
 		return _state;
 	}
-	else if (_val & 0x0002){
+	else if (_val == 0x0002){
 		_state=2;	
 		printf("Trigger status is External 2\n");
 		return _state;
 	}
-	else if (_val & 0x0003){
+	else if (_val == 0x0003){
 		_state=3;
 		printf("Trigger status is External (1 or 2)\n");
 		return _state;
 	}
 	else{
-		printf("Unknown trigger status\n");
+		printf("Unknown Trigger status\n");
 	}
 	return 0;
 }
