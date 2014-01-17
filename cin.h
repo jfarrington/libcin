@@ -27,7 +27,7 @@ extern "C" {
 #define CIN_DATA_FRAME_WIDTH         1152
 #define CIN_DATA_FRAME_SIZE          4432584
 #define CIN_DATA_DROPPED_PACKET_VAL  0x0
-#define CIN_DATA_RCVBUF              0x200000
+#define CIN_DATA_RCVBUF              20                   // Mb 
 
 struct cin_port {
     char *srvaddr;
@@ -39,7 +39,8 @@ struct cin_port {
     struct sockaddr_in sin_srv; /* server info */
     struct sockaddr_in sin_cli; /* client info (us!) */
     socklen_t slen; /* for recvfrom() */
-    unsigned int rcvbuf; /* For setting data recieve buffer */
+    unsigned long int rcvbuf; /* For setting data recieve buffer */
+    unsigned long int rcvbuf_rb; /* For readback */
 };
 
 struct cin_data_frame {
@@ -69,7 +70,7 @@ int cin_init_data_port(struct cin_port* dp,
 int cin_data_read(struct cin_port* dp, unsigned char* buffer);
 int cin_data_write(struct cin_port* dp, unsigned char* buffer, int buffer_len);
 
-int cin_data_init(void);
+int cin_data_init(int packet_buffer_len, int frame_buffer_len);
 void cin_data_wait_for_threads(void);
 int cin_data_stop_threads(void);
 

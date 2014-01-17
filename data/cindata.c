@@ -77,6 +77,7 @@ int cin_init_data_port(struct cin_port* dp,
   } else {
     dp->rcvbuf = rcvbuf;
   }
+  dp->rcvbuf = dp->rcvbuf * 1024 * 1024; // Convert to Mb
 
   dp->sockfd = socket(AF_INET, SOCK_DGRAM, 0);
   if(dp->sockfd < 0) {
@@ -121,10 +122,18 @@ int cin_init_data_port(struct cin_port* dp,
 
   /* Set the receieve buffers for the socket */
 
-  /*if(setsockopt(dp->sockfd, SOL_SOCKET, SO_RCVBUF, 
+  if(setsockopt(dp->sockfd, SOL_SOCKET, SO_RCVBUF, 
                 &dp->rcvbuf, sizeof(dp->rcvbuf)) == -1){
     perror("CIN data port - unable to set receive buffer :");
-  } */
+  } 
+
+  socklen_t rcvbuf_rb_len = sizeof(dp->rcvbuf_rb);
+  if(getsockopt(dp->sockfd, SOL_SOCKET, SO_RCVBUF,
+                &dp->rcvbuf_rb, &rcvbuf_rb_len) == -1){
+    perror("CIN data port - unable to get receive buffer :");
+  }
+
+  //fprintf(stderr, "\n\n\nSet Recieve buffer to %ld Mb\n\n\n", rcvbuf_rb / (1024 * 1024));
 
   thread_data.dp = dp;
   return 0;
@@ -150,7 +159,7 @@ int cin_data_write(struct cin_port* dp, unsigned char* buffer, int buffer_len){
  * -----------------------------------------------------------------------------------------
  */
 
-int cin_data_init(void){
+int cin_data_init(int packet_buffer_len, int frame_buffer_len){
   /* Initialize and start all the threads to acquire data */
   /* This does not block, just start threads */
   /* Setup FIFO elements */
@@ -166,13 +175,13 @@ int cin_data_init(void){
 
   /* Packet FIFO */
 
-  if(fifo_init(thread_data.packet_fifo, sizeof(struct cin_data_packet), 2000000) == FALSE){
+  if(fifo_init(thread_data.packet_fifo, sizeof(struct cin_data_packet), packet_buffer_len) == FALSE){
     return 1;
   }
 
   /* Frame FIFO */
 
-  if(fifo_init(thread_data.frame_fifo, sizeof(struct cin_data_frame), 20000) == FALSE){
+  if(fifo_init(thread_data.frame_fifo, sizeof(struct cin_data_frame), frame_buffer_len) == FALSE){
     return 1;
   }
 
@@ -232,23 +241,18 @@ void *cin_data_assembler_thread(void){
   
   struct cin_data_packet *buffer = NULL;
   struct cin_data_frame *frame = NULL;
-  unsigned int this_frame = 0;
-  unsigned int last_frame = -1;
-  unsigned int this_packet = 0;
-  unsigned int last_packet = 0;
-  unsigned int this_packet_msb = 0;
+  int this_frame = 0;
+  int last_frame = -1;
+  int this_packet = 0;
+  int last_packet = 0;
+  int this_packet_msb = 0;
+  int last_packet_msb = 0;
+  int skipped;
 
   int buffer_len;
   unsigned char *buffer_p;
 
   uint64_t header;
-
-#ifdef __DESCRAMBLE__
-  /* Descramble Map */
-  uint32_t *ds_map = (uint32_t*)descramble_map_forward_bin; 
-  uint32_t *ds_map_p = ds_map;
-  long int i;
-#endif
 
   struct timespec last_frame_timestamp = {0,0};
   struct timespec this_frame_timestamp = {0,0};
@@ -289,14 +293,6 @@ void *cin_data_assembler_thread(void){
         if(this_frame != last_frame){
           /* We have a new frame */
 
-#ifdef __DEBUG__
-          if(thread_data.last_frame != last_frame){
-            fprintf(stderr, "\n\n\n\nSkipped frame\n\n\n\n\n");
-          }
-#endif
-
-          /* Push out the last frame */
-
           if(frame){
             frame->number = this_frame;
             frame->timestamp = this_frame_timestamp;
@@ -318,41 +314,31 @@ void *cin_data_assembler_thread(void){
 
           /* Set all the last frame stuff */
           last_frame = this_frame;
-          last_packet = 0;
+          last_packet = -1;
           this_packet_msb = 0;
+          last_packet_msb = 0;
           
           last_frame_timestamp  = this_frame_timestamp;
           this_frame_timestamp  = buffer->timestamp;
-
           thread_data.framerate = timespec_diff(last_frame_timestamp,this_frame_timestamp);
-        } else { /* This frame is not last frame */
-          if(this_packet <= last_packet){
-            this_packet_msb += 0x100;
+        } // this_frame != last_frame 
+
+        if(this_packet <= last_packet){
+          this_packet_msb += 0x100;
+        }
+
+        skipped = (this_packet + this_packet_msb) - (last_packet + last_packet_msb + 1);
+        if(skipped){
+          if(skipped < 0){
+            fprintf(stderr, "\n\n\nskipped = %d, last_packet = %d, this_packet = %d, %d\n\n\n\n", skipped,
+                    last_packet, this_packet, (last_packet + 1) & 0xFF);
           }
+          thread_data.dropped_packets += skipped;
         }
 
-#ifdef __DESCRAMBLE__
-        /* Swap endienness of packet and copy to frame */
-        /* 
-           NOTE : This could be done a bit better is the descramble
-           map was made up of char with the swap of endienness implicitly
-           in the map. This would avoid the left shift and the addition
-           however this would make the loop run twice as fast. This should
-           be checked to see which is fastest.
-        */
+        memcpy(frame->data + ((this_packet + this_packet_msb) * CIN_DATA_PACKET_LEN), 
+               (uint16_t*)buffer_p, buffer_len);
 
-        ds_map_p = ds_map + ((this_packet + this_packet_msb) * CIN_DATA_PACKET_LEN / 2);
-        for(i=0;i<(buffer_len / 2);i++){
-          *(frame->data + *ds_map_p) = (*buffer_p << 8) + *(buffer_p + 1);
-          /* Advance descramble map by 1 and buffer by 2 */ 
-          buffer_p += 2;
-          ds_map_p ++;
-        }
-#else
-        frame_p = frame->data + (this_packet + this_packet_msb);
-        memcpy(frame_p, (uint16_t*)buffer_p, buffer_len);
-        frame_p += buffer_len / 2;
-#endif
       } else { /* if not magic packet */ 
         thread_data.mallformed_packets++;
       } 
@@ -366,13 +352,10 @@ void *cin_data_assembler_thread(void){
       /* Now we can set the last packet to this packet */
 
       last_packet = this_packet;
+      last_packet_msb = this_packet_msb;
 
-    } else {
-      /* If there is a valid frame then push it out */
-      pthread_mutex_lock(packet_mutex);
-      pthread_cond_wait(packet_signal, packet_mutex);
-      pthread_mutex_unlock(packet_mutex);
-    }
+    } 
+    // We spinlock here to increase efficiency
   }
 
   pthread_exit(NULL);
@@ -417,12 +400,9 @@ void *cin_data_listen_thread(void){
     buffer->size = cin_data_read(thread_data.dp, buffer->data);
     clock_gettime(CLOCK_REALTIME, &buffer->timestamp);
 
-    if (buffer->size > 1024){
-      pthread_mutex_lock(packet_mutex);
-      fifo_advance_head(thread_data.packet_fifo);
-      pthread_cond_signal(packet_signal);
-      pthread_mutex_unlock(packet_mutex);
-    }
+    pthread_mutex_lock(packet_mutex);
+    fifo_advance_head(thread_data.packet_fifo);
+    pthread_mutex_unlock(packet_mutex);
   }
 
   pthread_exit(NULL);
