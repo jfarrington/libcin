@@ -22,6 +22,11 @@ int fifo_init(fifo *f, int elem_size, long int size){
   /* Initialize the fifo */
   /* NOTE : if this fails then it causes memory leaks !*/
 
+  f = malloc(sizeof(fifo));
+  if(!f){
+    return FALSE;
+  }
+
   f->data = malloc(size * (long int)elem_size);
   if(f->data == NULL){
     return FALSE;
