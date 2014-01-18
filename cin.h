@@ -23,11 +23,12 @@ extern "C" {
 #define CIN_DATA_MAGIC_PACKET        0x0000F4F3F2F1F000
 #define CIN_DATA_MAGIC_PACKET_MASK   0x0000FFFFFFFFFF00
 #define CIN_DATA_PACKET_LEN          8184
+#define CIN_DATA_MAX_PACKETS         542
 #define CIN_DATA_FRAME_HEIGHT        1924
 #define CIN_DATA_FRAME_WIDTH         1152
 #define CIN_DATA_FRAME_SIZE          4432584
 #define CIN_DATA_DROPPED_PACKET_VAL  0x0
-#define CIN_DATA_RCVBUF              20                   // Mb 
+#define CIN_DATA_RCVBUF              20  // Mb 
 
 struct cin_port {
     char *srvaddr;
@@ -44,7 +45,7 @@ struct cin_port {
 };
 
 struct cin_data_frame {
-  uint16_t data[CIN_DATA_FRAME_WIDTH * CIN_DATA_FRAME_HEIGHT];
+  uint16_t data[CIN_DATA_MAX_PACKETS * CIN_DATA_PACKET_LEN];
   uint16_t number;
   struct timespec timestamp;
 };
