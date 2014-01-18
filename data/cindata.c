@@ -34,6 +34,8 @@ static pthread_mutex_t *packet_mutex;
 static pthread_cond_t *packet_signal;
 static pthread_mutex_t *frame_mutex;
 static pthread_cond_t *frame_signal;
+static pthread_mutex_t *image_mutex;
+static pthread_cond_t *image_signal;
 static struct cin_data_thread_data thread_data;
 
 /* -----------------------------------------------------------------------------------------
@@ -172,6 +174,10 @@ int cin_data_init(int packet_buffer_len, int frame_buffer_len){
   if(!thread_data.frame_fifo){
     return 1;
   }
+  thread_data.image_fifo = malloc(sizeof(fifo));
+  if(!thread_data.image_fifo){
+    return 1;
+  }
 
   /* Packet FIFO */
 
@@ -185,6 +191,12 @@ int cin_data_init(int packet_buffer_len, int frame_buffer_len){
     return 1;
   }
 
+  /* Image FIFO */
+
+  if(fifo_init(thread_data.image_fifo, sizeof(struct cin_data_frame), frame_buffer_len) == FALSE){
+    return 1;
+  }
+
   /* Set some defaults */
 
   thread_data.mallformed_packets = 0;
@@ -194,13 +206,17 @@ int cin_data_init(int packet_buffer_len, int frame_buffer_len){
 
   packet_mutex  = malloc(sizeof(pthread_mutex_t));
   frame_mutex   = malloc(sizeof(pthread_mutex_t));
+  image_mutex   = malloc(sizeof(pthread_mutex_t));
   packet_signal = malloc(sizeof(pthread_cond_t));
   frame_signal  = malloc(sizeof(pthread_cond_t));
+  image_signal  = malloc(sizeof(pthread_cond_t));
 
   pthread_mutex_init(packet_mutex, NULL);
   pthread_mutex_init(frame_mutex, NULL);
+  pthread_mutex_init(image_mutex, NULL);
   pthread_cond_init(packet_signal, NULL);
   pthread_cond_init(frame_signal, NULL);
+  pthread_cond_init(image_signal, NULL);
 
   /* Try to nice process */
 
@@ -212,7 +228,8 @@ int cin_data_init(int packet_buffer_len, int frame_buffer_len){
 
   pthread_create(&threads[0], NULL, (void *)cin_data_listen_thread, NULL);
   pthread_create(&threads[1], NULL, (void *)cin_data_assembler_thread, NULL);
-  pthread_create(&threads[2], NULL, (void *)cin_data_monitor_thread, NULL);
+  pthread_create(&threads[2], NULL, (void *)cin_data_descramble_thread, NULL);
+  pthread_create(&threads[3], NULL, (void *)cin_data_monitor_thread, NULL);
 
   return 0;
 }
@@ -223,6 +240,7 @@ void cin_data_wait_for_threads(void){
   pthread_join(threads[0], NULL);
   pthread_join(threads[1], NULL);
   pthread_join(threads[2], NULL);
+  pthread_join(threads[3], NULL);
 }
 
 int cin_data_stop_threads(void){
@@ -269,6 +287,11 @@ void *cin_data_assembler_thread(void){
 
     pthread_mutex_lock(packet_mutex);
     buffer = (struct cin_data_packet*)fifo_get_tail(thread_data.packet_fifo);
+    while(!buffer){
+      /* The buffer is empty, lets wait for a packet */
+      pthread_cond_wait(packet_signal, packet_mutex);
+      buffer = (struct cin_data_packet*)fifo_get_tail(thread_data.packet_fifo);
+    }
     pthread_mutex_unlock(packet_mutex);
 
     if(buffer != NULL){
@@ -276,6 +299,13 @@ void *cin_data_assembler_thread(void){
 
       buffer_p = buffer->data;
       buffer_len = buffer->size - CIN_DATA_UDP_HEADER;
+      if(buffer_len > CIN_DATA_PACKET_LEN){
+        /* Dump the frame and continue */
+        pthread_mutex_lock(packet_mutex);
+        fifo_advance_tail(thread_data.packet_fifo);
+        pthread_mutex_unlock(packet_mutex);
+        continue;
+      }
 
       /* Next lets check the magic number of the packet */
       header = *((uint64_t *)buffer_p) & CIN_DATA_MAGIC_PACKET_MASK; 
@@ -329,16 +359,18 @@ void *cin_data_assembler_thread(void){
 
         skipped = (this_packet + this_packet_msb) - (last_packet + last_packet_msb + 1);
         if(skipped){
-          if(skipped < 0){
-            fprintf(stderr, "\n\n\nskipped = %d, last_packet = %d, this_packet = %d, %d\n\n\n\n", skipped,
-                    last_packet, this_packet, (last_packet + 1) & 0xFF);
-          }
+          //fprintf(stderr, "\n\n\nskipped = %d, last_packet = %d, this_packet = %d, %d\n\n\n\n", skipped,
+          //        last_packet, this_packet, (last_packet + 1) & 0xFF);
           thread_data.dropped_packets += skipped;
         }
 
-        memcpy(frame->data + ((this_packet + this_packet_msb) * CIN_DATA_PACKET_LEN), 
-               (uint16_t*)buffer_p, buffer_len);
-
+        /* Do some bounds checking */
+        if((this_packet + this_packet_msb) < CIN_DATA_MAX_PACKETS){
+          memcpy((char*)frame->data + ((this_packet + this_packet_msb) * CIN_DATA_PACKET_LEN), 
+                 buffer_p, buffer_len);
+        } else {
+          fprintf(stderr, "\n\n\n\nOUT OF BOUNDS %x \n\n\n\n", this_packet + this_packet_msb); 
+        }
       } else { /* if not magic packet */ 
         thread_data.mallformed_packets++;
       } 
@@ -349,30 +381,42 @@ void *cin_data_assembler_thread(void){
       fifo_advance_tail(thread_data.packet_fifo);
       pthread_mutex_unlock(packet_mutex);
 
+      pthread_mutex_lock(frame_mutex);
+      pthread_cond_signal(frame_signal);
+      pthread_mutex_unlock(frame_mutex);
+
       /* Now we can set the last packet to this packet */
 
       last_packet = this_packet;
       last_packet_msb = this_packet_msb;
 
     } 
-    // We spinlock here to increase efficiency
   }
 
   pthread_exit(NULL);
 }
 
 void *cin_data_monitor_thread(void){
-  fprintf(stderr, "\033[?25l");
-  double framerate;
+  //fprintf(stderr, "\033[?25l");
+  double framerate = 0, f;
 
   while(1){
-    framerate = 1.0 / ((double)thread_data.framerate.tv_nsec * 1e-9);
+    f = ((double)thread_data.framerate.tv_nsec * 1e-9);
+    if(f == 0){
+      f = 0;
+    } else {
+      f = 1 / f;
+    }
 
-    fprintf(stderr, "Last frame %d\n", (unsigned int)thread_data.last_frame);
+    framerate -= framerate / 10000.0;
+    framerate += f / 10000.0;
 
-    fprintf(stderr, "Packet buffer is %6.2f %% full. Spool buffer is %6.2f %% full.\n",
+    fprintf(stderr, "Last frame %12d\n", (unsigned int)thread_data.last_frame);
+
+    fprintf(stderr, "Packet buffer %6.2f %%. Spool buffer %6.2f %%. Image buffer %6.2f %%.\n",
             fifo_percent_full(thread_data.packet_fifo),
-            fifo_percent_full(thread_data.frame_fifo));
+            fifo_percent_full(thread_data.frame_fifo),
+            fifo_percent_full(thread_data.image_fifo));
     
     fprintf(stderr, "Framerate = %6.1f s^-1 : Dropped packets %10ld : Mallformed packets %6ld\r",
             framerate, thread_data.dropped_packets, thread_data.mallformed_packets);
@@ -402,6 +446,7 @@ void *cin_data_listen_thread(void){
 
     pthread_mutex_lock(packet_mutex);
     fifo_advance_head(thread_data.packet_fifo);
+    pthread_cond_signal(packet_signal);
     pthread_mutex_unlock(packet_mutex);
   }
 
@@ -412,23 +457,67 @@ struct cin_data_frame* cin_data_get_next_frame(void){
   /* This routine gets the next frame. This will block until a frame is avaliable */
   struct cin_data_frame *frame = NULL;
 
-  pthread_mutex_lock(frame_mutex);
-  frame = (struct cin_data_frame*)fifo_get_tail(thread_data.frame_fifo);
+  pthread_mutex_lock(image_mutex);
+  frame = (struct cin_data_frame*)fifo_get_tail(thread_data.image_fifo);
   while(frame == NULL){
-    frame = (struct cin_data_frame*)fifo_get_tail(thread_data.frame_fifo);
-    /* block until frame is avaliable */
-    pthread_cond_wait(frame_signal, frame_mutex);
+    frame = (struct cin_data_frame*)fifo_get_tail(thread_data.image_fifo);
+    pthread_cond_wait(image_signal, image_mutex);
   }
-  pthread_mutex_unlock(frame_mutex);
-  
+  pthread_mutex_unlock(image_mutex);
   return frame;
 }
 
 void cin_data_release_frame(int free_mem){
   /* Advance the fifo */
-  pthread_mutex_lock(frame_mutex);
-  fifo_advance_tail(thread_data.frame_fifo);
-  pthread_mutex_unlock(frame_mutex);
+  pthread_mutex_lock(image_mutex);
+  fifo_advance_tail(thread_data.image_fifo);
+  pthread_mutex_unlock(image_mutex);
+}
+
+
+void* cin_data_descramble_thread(void){
+  /* This routine gets the next frame and descrambles is */
+  struct cin_data_frame *frame = NULL;
+  struct cin_data_frame *image = NULL;
+  int i;
+
+  uint32_t *dsmap = (uint32_t*)descramble_map_forward_bin;
+
+  while(1){
+    // Get a frame 
+    
+    pthread_mutex_lock(frame_mutex);
+    frame = (struct cin_data_frame*)fifo_get_tail(thread_data.frame_fifo);
+    while(frame == NULL){
+      pthread_cond_wait(frame_signal, frame_mutex);
+      frame = (struct cin_data_frame*)fifo_get_tail(thread_data.frame_fifo);
+    }
+    pthread_mutex_unlock(frame_mutex);
+
+    pthread_mutex_lock(image_mutex);
+    image = (struct cin_data_frame*)fifo_get_head(thread_data.image_fifo);
+    pthread_mutex_unlock(image_mutex);
+
+    for(i=0;i<(CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH);i++){
+      image->data[dsmap[i]] = (frame->data[i] << 8) | (frame->data[i] >> 8); 
+    }
+    image->timestamp = frame->timestamp;
+    image->number = frame->number;
+
+    // Release the frame and the image
+
+    pthread_mutex_lock(frame_mutex);
+    fifo_advance_tail(thread_data.frame_fifo);
+    pthread_mutex_unlock(frame_mutex);
+
+    pthread_mutex_lock(image_mutex);
+    fifo_advance_head(thread_data.image_fifo);
+    pthread_cond_signal(image_signal);
+    pthread_mutex_unlock(image_mutex);
+
+  }
+
+  pthread_exit(NULL);
 }
 
 /* -----------------------------------------------------------------------------------------

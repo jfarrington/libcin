@@ -23,6 +23,7 @@ struct cin_data_thread_data {
   /* FIFO Elements */
   fifo *packet_fifo;  
   fifo *frame_fifo;
+  fifo *image_fifo;
 
   /* Interface */
   struct cin_port* dp; 
@@ -48,6 +49,7 @@ struct cin_data_packet {
 void *cin_data_listen_thread(void);
 void *cin_data_monitor_thread(void);
 void *cin_data_assembler_thread(void);
+void *cin_data_descramble_thread(void);
 
 /* Profiling Functions */
 struct timespec timespec_diff(struct timespec start, struct timespec end);
