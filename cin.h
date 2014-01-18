@@ -79,13 +79,13 @@ int cin_set_bias(struct cin_port* cp,int val);   		//Turn on/off camera CCD bias
 										//Input:val={1-ON,0-OFF}
 																				
 int cin_set_clocks(struct cin_port* cp,int val);  	//Turn on/off camera clocks
-								    //Input:val={1-ON,0-OFF}
+					    			//Input:val={1-ON,0-OFF}
 
-int cin_set_trigger(struct cin_port* cp,int val);  	//Set trigger source
-										//Input:val={0-Internal, 1-External1, 2-External2, 3-External 1 or 2}
+int cin_set_trigger(struct cin_port* cp,int val); 	//Set trigger source
+//Tested						//Input:val={0-Internal, 1-External1, 2-External2, 3-External 1 or 2}
 
-int cin_get_trigger_status (struct cin_port* cp);  //Get trigger source status
-										//Return:{0-Internal, 1-External1, 2-External2, 3-External 1 or 2}*/
+int cin_get_trigger_status (struct cin_port* cp);//Tested	//Get trigger source status
+//Tested						//Return:{0-Internal, 1-External1, 2-External2, 3-External 1 or 2}*/
 
 int cin_set_exposure_time(struct cin_port* cp,float e_time);  //Set the Camera exposure time
 				 	 					//Input:e_time (ms)					/*TODO:-Malformed packet when MSB=0x0000*/
