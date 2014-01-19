@@ -1,8 +1,12 @@
 # Variables for compelation
 CC=gcc
-CFLAGS=-Wall -O3 -g -D__DESCRAMBLE__ -D__DEBUG__
-LDFLAGS=-L.
+CFLAGS=-Wall -O3 -g -D__DEBUG__ --pic
+LDFLAGS=-L. 
 LDLIBS=-lpthread -lrt
+
+# UNCOMMENT for Profiling code
+CFLAGS+=-pg
+LDFLAGS+=-pg
 
 SUBDIRS=bindata control data tests utils
 .PHONY :subdirs $(SUBDIRS)
