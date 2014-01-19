@@ -355,13 +355,17 @@ void *cin_data_assembler_thread(void){
 
 void *cin_data_monitor_thread(void){
   //fprintf(stderr, "\033[?25l");
-  double framerate = 0, f;
+  double framerate = 0;
+  double framerate_smoothed =0;
+  double f;
+
+  unsigned int last_frame = 0;
 
   while(1){
-    if(fifo_used_bytes(thread_data.frame_fifo) == 0){
-      // Fifo is empty therefore we are idle
-      framerate = 0.0;
-    } else { // we are processing frames
+
+    if((unsigned int)thread_data.last_frame != last_frame){
+      // Compute framerate
+
       f = ((double)thread_data.framerate.tv_nsec * 1e-9);
       if(f == 0){
         f = 0;
@@ -371,11 +375,15 @@ void *cin_data_monitor_thread(void){
 
       // Provide some smoothing to the data
 
-      framerate -= framerate / 100.0;
-      framerate += f / 100.0;
+      framerate_smoothed -= framerate_smoothed / 2.0;
+      framerate_smoothed += f / 2.0;
+      framerate = framerate_smoothed;
+    } else {
+      framerate = 0; // we are idle 
     }
 
-    fprintf(stderr, "Last frame %12d\n", (unsigned int)thread_data.last_frame);
+    last_frame = (unsigned int)thread_data.last_frame;
+    fprintf(stderr, "Last frame %12d\n", last_frame);
 
     fprintf(stderr, "Packet buffer %6.2f %%. Spool buffer %6.2f %%. Image buffer %6.2f %%.\n",
             fifo_percent_full(thread_data.packet_fifo),
@@ -388,7 +396,7 @@ void *cin_data_monitor_thread(void){
 
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
-    sleep(0.25);
+    sleep(1);
 
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
   }
