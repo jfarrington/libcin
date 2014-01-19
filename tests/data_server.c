@@ -22,9 +22,11 @@ int main(int argc, char *argv[]){
   int num_packets, c;
   char *host = NULL;
   int port = 49201;
-  long delay = 3e6;
+  long delay = 5L;
+  long packet_delay = 0L;
+  int walk = 0;
 
-  while((c = getopt (argc, argv, "a:p:d:h")) != -1){
+  while((c = getopt (argc, argv, "a:p:d:w:j:h")) != -1){
     switch(c){
       case 'a':
         host = optarg;
@@ -35,13 +37,21 @@ int main(int argc, char *argv[]){
       case 'd':
         delay = atol(optarg);
         break;
+      case 'w':
+        walk = atoi(optarg);
+        break;
+      case 'j':
+        packet_delay = atol(optarg);
+        break;
       case 'h':
       default:
         fprintf(stderr, "data_server:\n\n");
         fprintf(stderr, "\t-h : help (this page)\n");
         fprintf(stderr, "\t-a : host to send UDP stream to.\n");
         fprintf(stderr, "\t-p : port to send UDP stream to.\n");
-        fprintf(stderr, "\t-d : delay in nanoseconds between frames\n");
+        fprintf(stderr, "\t-d : delay in miliseconds between frames\n");
+        fprintf(stderr, "\t-j : delay in nanoseconds between packets\n");
+        fprintf(stderr, "\t-w : walk the test pattern by (n bits)\n");
         fprintf(stderr, "\n");  
         exit(1);
         break;
@@ -69,7 +79,7 @@ int main(int argc, char *argv[]){
 
   fprintf(stderr, "num packets = %d\n", num_packets);
 
-  start_server(packet, num_packets, host, port, delay);
+  start_server(packet, num_packets, host, port, delay, packet_delay, walk);
 
   return(0);
 }
@@ -136,16 +146,17 @@ int setup_packets(udp_packet **packets, int packet_size,
   return num_packets;
 }
 
-int start_server(udp_packet *packets, int num_packets, char* host, int port, long delay){
+int start_server(udp_packet *packets, int num_packets, char* host, 
+                 int port, long delay, long packet_delay, int walk){
   int s; /* socket */
   struct sockaddr_in dest_addr;
-  udp_packet* packet_p;
-  uint16_t frame_num;
-  int i = 1;
   struct timespec delay_time = {.tv_sec = 0, .tv_nsec = 0};
+  struct timespec packet_delay_time = {.tv_sec = 0, .tv_nsec = 0};
   char buffer[256];
+  int i = 1;
 
-  delay_time.tv_nsec = delay;
+  delay_time.tv_nsec = delay * 1000000L;
+  packet_delay_time.tv_nsec = packet_delay;
 
   dest_addr.sin_family = AF_INET;
   dest_addr.sin_port   = htons(port);
@@ -183,18 +194,29 @@ int start_server(udp_packet *packets, int num_packets, char* host, int port, lon
   fprintf(stderr, "Delay = %ld ns\n", delay_time.tv_nsec); 
   fprintf(stderr, "Send Buffer = %ld Mb\n", sndbuf / (1024*1024));
 
-  frame_num = 0;
-
+  unsigned char* data_p;
+  int j;
+  udp_packet* packet_p;
+  uint16_t frame_num = 0;
+  
   while(1){
     packet_p = packets;
     for(i=0;i<num_packets;i++){
       packet_p->data[6] = (char)(frame_num >> 8);
       packet_p->data[7] = (char)(frame_num & 0xFF);
+
+      /* Walk the test pattern */
+      data_p = packet_p->data + 8;
+      for(j=0;j<(packet_p->len-8);j+=2){
+        (*data_p) += (char)walk;
+        data_p+=2;
+      }
+
       sendto(s, packet_p->data, packet_p->len, 0, 
              (struct sockaddr*) &dest_addr, sizeof(dest_addr));
-      //printf("%d,%d,%d \n", i, packet_p->len, packet_p->data[0]);
       packet_p++;
-      //nanosleep(&delay_time, NULL);
+
+      nanosleep(&packet_delay_time, NULL);
     }
     frame_num++;
     nanosleep(&delay_time,NULL);
