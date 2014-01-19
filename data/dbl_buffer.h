@@ -9,11 +9,11 @@ extern "C" {
 
 #define CIN_DATA_DBL_BUFFER_SIZE 2
 
-struct image_dbl_buffer {
+typedef struct image_dbl_buffer {
   uint16_t *image[CIN_DATA_DBL_BUFFER_SIZE];
   int used[CIN_DATA_DBL_BUFFER_SIZE];
   int active;
-};
+} dbl_buffer_t;
 
 #ifdef __cplusplus
 }
