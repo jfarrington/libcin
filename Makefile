@@ -22,3 +22,14 @@ clean:
 	$(MAKE) -C tests clean
 	$(MAKE) -C control clean
 	$(MAKE) -C utils clean
+
+.PHONY :install
+install: all
+	test -d $(prefix)         || mkdir $(prefix)
+	test -d $(prefix)/lib     || mkdir $(prefix)/lib
+	test -d $(prefix)/bin     || mkdir $(prefix)/bin
+	test -d $(prefix)/include || mkdir $(prefix)/include
+	$(INSTALL_DATA) lib/libcin.a $(libdir)
+	$(INSTALL_DATA) cin.h $(includedir)
+	$(INSTALL_PROGRAM) utils/cindump $(bindir)
+

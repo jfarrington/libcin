@@ -4,9 +4,21 @@ CFLAGS=-Wall -O3 -g -D__DEBUG__ --pic
 LDFLAGS=-L. 
 LDLIBS=-lpthread -lrt
 
+# Stuff for install files
+
+INSTALL = install
+prefix = /usr/local
+includedir = $(prefix)/include
+exec_prefix = $(prefix)
+bindir = $(exec_prefix)/bin
+libdir = $(exec_prefix)/lib
+
+INSTALL_DATA = $(INSTALL) -m 644
+INSTALL_PROGRAM = ${INSTALL} -m 755
+
 # UNCOMMENT for Profiling code
-CFLAGS+=-pg
-LDFLAGS+=-pg
+#CFLAGS+=-pg
+#LDFLAGS+=-pg
 
 SUBDIRS=bindata control data tests utils
 .PHONY :subdirs $(SUBDIRS)
