@@ -1,12 +1,15 @@
 include CONFIG
 
-all: control data libcin tests utils
+all: control data lib/libcin.a tests utils
 
 # create dynamically and statically-linked libs.
-libcin: 
+lib/libcin.a: $(LIBOBJECTS) 
 	test -d lib || mkdir lib
-	$(AR) -rcs lib/$@.a $(LIBOBJECTS)
-	$(CC) $(CFLAGS) -fpic -shared -I. -o lib/$@.so $(LIBSOURCES)
+	$(AR) -rcs $@ $(LIBOBJECTS)
+
+lib/libcin.so:  $(LIBSOURCES)
+	test -d lib || mkdir lib
+	$(CC) $(CFLAGS) -shared -o $@ $(LIBOBJECTS)
 
 $(SUBDIRS): 
 	$(MAKE) -C $@
