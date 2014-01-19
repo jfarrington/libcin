@@ -14,6 +14,7 @@ data_server: data_server.o data_server.h \
 make_descramble_map: make_descramble_map.o
 
 cin_test: cin_test.o ../lib/libcin.a
+	$(CC) $(LDFLAGS) -o $@ cin_test.o $(LDLIBS)
 
 .PHONY : maps
 maps: descramble_map_forward.bin descramble_map_reverse.bin
