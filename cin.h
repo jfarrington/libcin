@@ -28,7 +28,7 @@ extern "C" {
 #define CIN_DATA_FRAME_WIDTH         1152
 #define CIN_DATA_FRAME_SIZE          4432584
 #define CIN_DATA_DROPPED_PACKET_VAL  0x0
-#define CIN_DATA_RCVBUF              20  // Mb 
+#define CIN_DATA_RCVBUF              100  // Mb 
 
 struct cin_port {
     char *srvaddr;
