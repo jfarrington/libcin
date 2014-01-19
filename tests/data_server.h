@@ -21,7 +21,7 @@ int scramble_image(unsigned char* stream, uint16_t *image, int size);
 int setup_packets(udp_packet **packet, int packet_size,
                   unsigned char* stream, unsigned int stream_len);
 int start_server(udp_packet *packets, int num_packets, char* host, 
-                 int port, long delay, long packet_delay, int walk);
+                 int port, int tbuf, long delay, long packet_delay, int walk);
 
 #ifdef __cplusplus
 }

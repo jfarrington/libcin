@@ -25,8 +25,9 @@ int main(int argc, char *argv[]){
   long delay = 5L;
   long packet_delay = 0L;
   int walk = 0;
+  int tbuf = 20; //Mb
 
-  while((c = getopt (argc, argv, "a:p:d:w:j:h")) != -1){
+  while((c = getopt (argc, argv, "a:p:d:w:j:b:h")) != -1){
     switch(c){
       case 'a':
         host = optarg;
@@ -42,6 +43,9 @@ int main(int argc, char *argv[]){
         break;
       case 'j':
         packet_delay = atol(optarg);
+        break;
+      case 'b':
+        tbuf = atoi(optarg);
         break;
       case 'h':
       default:
@@ -79,7 +83,7 @@ int main(int argc, char *argv[]){
 
   fprintf(stderr, "num packets = %d\n", num_packets);
 
-  start_server(packet, num_packets, host, port, delay, packet_delay, walk);
+  start_server(packet, num_packets, host, port, tbuf, delay, packet_delay, walk);
 
   return(0);
 }
@@ -147,7 +151,7 @@ int setup_packets(udp_packet **packets, int packet_size,
 }
 
 int start_server(udp_packet *packets, int num_packets, char* host, 
-                 int port, long delay, long packet_delay, int walk){
+                 int port, int tbuf, long delay, long packet_delay, int walk){
   int s; /* socket */
   struct sockaddr_in dest_addr;
   struct timespec delay_time = {.tv_sec = 0, .tv_nsec = 0};
@@ -155,7 +159,7 @@ int start_server(udp_packet *packets, int num_packets, char* host,
   char buffer[256];
   int i = 1;
 
-  delay_time.tv_nsec = delay * 1000000L;
+  delay_time.tv_nsec = delay * 1000L;
   packet_delay_time.tv_nsec = packet_delay;
 
   dest_addr.sin_family = AF_INET;
@@ -177,7 +181,7 @@ int start_server(udp_packet *packets, int num_packets, char* host,
     return 1;
   }
 
-  long int sndbuf = 1024 * 1024 * 20;
+  long int sndbuf = 1024 * 1024 * tbuf;
   if(setsockopt(s, SOL_SOCKET, SO_SNDBUF,
                 &sndbuf, sizeof(sndbuf)) == -1){
     perror("CIN data port - unable to set receive buffer :");
@@ -216,7 +220,7 @@ int start_server(udp_packet *packets, int num_packets, char* host,
              (struct sockaddr*) &dest_addr, sizeof(dest_addr));
       packet_p++;
 
-      nanosleep(&packet_delay_time, NULL);
+      //nanosleep(&packet_delay_time, NULL);
     }
     frame_num++;
     nanosleep(&delay_time,NULL);
