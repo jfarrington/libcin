@@ -5,11 +5,15 @@
 #include <pthread.h>
 #include <stdint.h>
 #include <tiffio.h>
+#include <signal.h>
 
 #include "cin.h"
-#ifdef __COMPRESS__
-  #include "lz4.h"
-#endif
+
+static int keep_running = 1;
+
+void int_handler(int dummy){
+  keep_running = 0;
+}
 
 int main(int argc, char *argv[]){
 
@@ -50,9 +54,7 @@ int main(int argc, char *argv[]){
     exit(1);
   }
 
-  char* buffer;
-  buffer = malloc(sizeof(char) * CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH);
-  int size;
+  signal(SIGINT, int_handler);
 
   while(1){
     frame = cin_data_get_next_frame();
@@ -80,19 +82,19 @@ int main(int argc, char *argv[]){
       fp = fopen(filename, "w");
       if(fp){
         /* Compress stream */
-#ifdef __COMPRESS__
-        size = LZ4_compress((char *)frame->data, buffer, 2 * CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH);
-        fwrite(buffer, sizeof(char), size, fp);
-#else      
         fwrite(frame->data, sizeof(uint16_t),
                CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH, fp);
-#endif
         fclose(fp);
       }
 
     }
 
     cin_data_release_frame(1);
+
+    if(!keep_running){
+      cin_data_stop_threads();
+      break;
+    }
   }
 
   cin_data_wait_for_threads();
