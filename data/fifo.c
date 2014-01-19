@@ -22,11 +22,6 @@ int fifo_init(fifo *f, int elem_size, long int size){
   /* Initialize the fifo */
   /* NOTE : if this fails then it causes memory leaks !*/
 
-  f = malloc(sizeof(fifo));
-  if(!f){
-    return FALSE;
-  }
-
   f->data = malloc(size * (long int)elem_size);
   if(f->data == NULL){
     return FALSE;
@@ -46,6 +41,11 @@ int fifo_init(fifo *f, int elem_size, long int size){
   f->tail = f->data;
 
   f->full = FALSE;
+
+  /* Setup mutex */
+
+  pthread_mutex_init(&f->mutex,NULL);
+  pthread_cond_init(&f->signal, NULL);
 
   return TRUE;
 }
@@ -73,45 +73,57 @@ double fifo_percent_full(fifo *f){
 }
 
 void *fifo_get_head(fifo *f){
-  return f->head;
+  void *head;
+
+  pthread_mutex_lock(&f->mutex);
+  head = f->head;
+  pthread_mutex_unlock(&f->mutex);
+
+  return head;
 }
 
 void fifo_advance_head(fifo *f){
   /* Increment the head pointet */
 
-  /* Check if we have hit the end before emptying any data */
+  pthread_mutex_lock(&f->mutex);
+
   if((f->head == f->end) && (f->tail == f->data)){
     f->full = TRUE;
-    return;
-  }
-
-  if((f->head + f->elem_size) == f->tail){
+  } else if((f->head + f->elem_size) == f->tail){
     /* FIFO is full. Don't increment */
     f->full = TRUE;
-    return;
-  }
-
-  if(f->head == f->end){
+  } else if(f->head == f->end){
     f->head = f->data;
+    f->full = FALSE;
   } else {
     f->head += f->elem_size;
+    f->full = FALSE;
   }
 
-  f->full = FALSE;
+  pthread_cond_signal(&f->signal);
+  pthread_mutex_unlock(&f->mutex);
 }
 
 void* fifo_get_tail(fifo *f){
   /* Return the tail pointer or NULL if the FIFO is empty */
 
-  if(f->tail == f->head){
-    return NULL;
+  void* tail;
+
+  pthread_mutex_lock(&f->mutex);
+  while(f->tail == f->head){
+    pthread_cond_wait(&f->signal, &f->mutex);
   }
 
-  return f->tail;
+  tail = f->tail;
+  pthread_mutex_unlock(&f->mutex);
+
+  return tail;
 }
 
 void fifo_advance_tail(fifo *f){
   /* Return the tail pointer and advance the FIFO */
+
+  pthread_mutex_lock(&f->mutex);
 
   /* If the head and tail are the same, FIFO is empty */
   if(f->tail == f->head){
@@ -123,5 +135,7 @@ void fifo_advance_tail(fifo *f){
   } else {
     f->tail += f->elem_size;
   }
+
+  pthread_mutex_unlock(&f->mutex);
 }
 
