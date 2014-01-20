@@ -46,7 +46,10 @@ int main (){
 	sleep(1);
 	
 	cin_fp_on(&cp[0]);      										//Power ON CIN front Panel
-	sleep(2);																		//Wait to allow visual check
+	sleep(2);	
+	
+	cin_get_power_status(&cp[0]);	              //Get CIN power status
+	sleep(2);	
 																																		 
 /************************* FCCD Configuration **************************/	
 	cin_load_config(&cp[0],cin_waveform_config);	//Load FCCD clock configuration
