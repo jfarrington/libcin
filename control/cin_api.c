@@ -418,7 +418,7 @@ int cin_set_fclk_125mhz(struct cin_port* cp){
 	}	
 }
 /*TODO:-Check Boolean comparisons*/
-int cin_get_fclk__status(struct cin_port* cp){ 
+int cin_get_fclk_status(struct cin_port* cp){ 
 
 	int _status;
 	uint32_t _reg,_reg7,_reg8,_reg9,_reg10,_reg11,_reg12,_val7,_val8;
