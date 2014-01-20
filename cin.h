@@ -52,7 +52,7 @@ int cin_close_ctl_port(struct cin_port* cp);
 /************************* CIN Read/Write *****************************/
 uint16_t cin_ctl_read(struct cin_port* cp, uint16_t reg);
 int cin_ctl_write(struct cin_port* cp, uint16_t reg, uint16_t val);
-											/*TODO - implement write verification procedure */
+											/*TODO - Verify write verification procedure */
 int cin_stream_write(struct cin_port* cp, char* val,int size);
 											/*TODO - implement write verification procedure */
 /********************** CIN PowerUP/PowerDown *************************/

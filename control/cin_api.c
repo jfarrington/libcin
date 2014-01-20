@@ -74,19 +74,28 @@ int cin_close_ctl_port(struct cin_port* cp) {
 
 int cin_ctl_write(struct cin_port* cp, uint16_t reg, uint16_t val) {
 
- 	uint32_t _val;
+//	uint32_t _valrd;
+ 	uint32_t _valwr;
   int rc;
 
-  _val = ntohl((uint32_t)(reg << 16 | val));
-  rc = sendto(cp->sockfd, &_val, sizeof(_val), 0, \
+  _valwr = ntohl((uint32_t)(reg << 16 | val));
+  rc = sendto(cp->sockfd, &_valwr, sizeof(_valwr), 0,  \
          						(struct sockaddr*)&cp->sin_srv,\ 
          						sizeof(cp->sin_srv));
-  if(rc != sizeof(_val) ) {
+  if(rc != sizeof(_valwr) ) {
    	perror("CIN control port - sendto( ) failure!!");
    	return -1;
  	}
 
- 	/*** TODO - implement write verification procedure ***/
+	/*** TODO - Verify write verification procedure ***/
+/*
+	_valrd=cin_ctl_read(cp,reg);	
+	if (_valrd =! _val)
+		perror("Error in cin_ctl_read: registser readback value different \
+						from write value.\n");
+   	return -1;
+	}
+*/
  	return 0;
 }
 
@@ -95,7 +104,8 @@ int cin_stream_write(struct cin_port* cp, char *val,int size) {
  	int rc;
     
  	rc = sendto(cp->sockfd, &val, size, 0,\
-    	(struct sockaddr*)&cp->sin_srv, sizeof(cp->sin_srv));
+    								(struct sockaddr*)&cp->sin_srv, \
+    								sizeof(cp->sin_srv));
  	if(rc != size ) {
   	perror("CIN control port - sendto( ) failure!!");
    	return -1;
@@ -107,16 +117,16 @@ int cin_stream_write(struct cin_port* cp, char *val,int size) {
 
 uint16_t cin_ctl_read(struct cin_port* cp, uint16_t reg) {
 	 
-	int status;
+	int _status;
 	uint32_t buf = 0;
   ssize_t n;
 
- 	status=cin_ctl_write(cp, REG_READ_ADDRESS, reg);
- 	if (status != 0){goto error;}
+ 	_status=cin_ctl_write(cp, REG_READ_ADDRESS, reg);
+ 	if (_status != 0){goto error;}
  	sleep(0.1);
 
- 	status=cin_ctl_write(cp, REG_COMMAND, CMD_READ_REG);
- 	if (status != 0){goto error;}
+ 	_status=cin_ctl_write(cp, REG_COMMAND, CMD_READ_REG);
+ 	if (_status != 0){goto error;}
 
  	/* set timeout to 1 sec */
  	cp->tv.tv_sec = 1;
@@ -151,17 +161,17 @@ uint16_t cin_ctl_read(struct cin_port* cp, uint16_t reg) {
 /******************* CIN PowerUP/PowerDown *************************/
 int cin_on(struct cin_port* cp){
 
-	int status;
+	int _status;
 	 
 	fprintf(stdout,"Powering ON CIN Board ........\n");
-	status=cin_ctl_write(cp,REG_PS_ENABLE, 0x000f);
-	if (status != 0){goto error;}
-	status=cin_ctl_write(cp,REG_COMMAND, CMD_PS_ENABLE);
-	if (status != 0){goto error;}
-//	status=cin_ctl_write(cp,REG_PS_ENABLE, 0x001f); //This is like CIN_FP_PowerDown ???
-	if (status != 0){goto error;}
-//	status=cin_ctl_write(cp,REG_COMMAND, CMD_PS_ENABLE);
-	if (status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_PS_ENABLE, 0x000f);
+	if (_status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_COMMAND, CMD_PS_ENABLE);
+	if (_status != 0){goto error;}
+//	_status=cin_ctl_write(cp,REG_PS_ENABLE, 0x001f); //This is like CIN_FP_PowerDown ???
+	if (_status != 0){goto error;}
+//	_status=cin_ctl_write(cp,REG_COMMAND, CMD_PS_ENABLE);
+	if (_status != 0){goto error;}
 	return 0;
 	
 	error:{
@@ -172,13 +182,13 @@ int cin_on(struct cin_port* cp){
 
 int cin_off(struct cin_port* cp) {
 
-	int status;
+	int _status;
 	  
 	fprintf(stdout,"Powering OFF CIN Board ........\n");
-	status=cin_ctl_write(cp,REG_PS_ENABLE, 0x0000);
-	if (status != 0){goto error;}
-	status=cin_ctl_write(cp,REG_COMMAND, CMD_PS_ENABLE);
-	if (status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_PS_ENABLE, 0x0000);
+	if (_status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_COMMAND, CMD_PS_ENABLE);
+	if (_status != 0){goto error;}
 	return 0;
 	
 	error:{
@@ -189,13 +199,13 @@ int cin_off(struct cin_port* cp) {
 
 int cin_fp_on(struct cin_port* cp){	
 
- 	int status;
+ 	int _status;
  	
 	fprintf(stdout,"Powering ON Front Panel Boards ........\n");
-	status=cin_ctl_write(cp,REG_PS_ENABLE, 0x003f);
-	if (status != 0){goto error;}
-	status=cin_ctl_write(cp,REG_COMMAND, CMD_PS_ENABLE);
-	if (status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_PS_ENABLE, 0x003f);
+	if (_status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_COMMAND, CMD_PS_ENABLE);
+	if (_status != 0){goto error;}
 	return 0;
 	
 	error:{
@@ -206,13 +216,13 @@ int cin_fp_on(struct cin_port* cp){
 
 int cin_fp_off(struct cin_port* cp){
 
- 	int status;
+ 	int _status;
  	
 	fprintf(stdout,"Powering OFF Front Panel Boards ........\n");
-	status=cin_ctl_write(cp,REG_PS_ENABLE, 0x001f);
-	if (status != 0){goto error;}
-	status=cin_ctl_write(cp,REG_COMMAND, CMD_PS_ENABLE);
-	if (status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_PS_ENABLE, 0x001f);
+	if (_status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_COMMAND, CMD_PS_ENABLE);
+	if (_status != 0){goto error;}
 	return 0;
 	
 	error:{
@@ -225,7 +235,7 @@ int cin_fp_off(struct cin_port* cp){
 /*TODO:-Check that file is loaded properly*/
 int cin_load_config(struct cin_port* cp,char *filename){
 
-  int status;
+  int _status;
   unsigned int read_reg, read_val, REG, VAL;
 //  uint16_t read_reg, read_val, REG, VAL;
   unsigned int i=1;//*DEBUG* 
@@ -248,8 +258,8 @@ int cin_load_config(struct cin_port* cp,char *filename){
         sscanf(reg_str, "%x", &REG);
         sscanf(val_str, "%x", &VAL);
 
-        status=cin_ctl_write(cp,REG,VAL);//	WriteReg( read_addr, read_data, 0 ) 
-        if (status != 0){goto error;}    
+        _status=cin_ctl_write(cp,REG,VAL);//	WriteReg( read_addr, read_data, 0 ) 
+        if (_status != 0){goto error;}    
 
         fprintf(stdout," Get line: %04x %04x\n",REG,VAL);//*DEBUG*  
       }   
@@ -272,7 +282,7 @@ int cin_load_config(struct cin_port* cp,char *filename){
 int cin_load_firmware(struct cin_port* cp,char *filename){
 	
 	//uint32_t num_e, fileLen, pack_t_num,pack_size=128;
-  int status;
+  int _status;
 	unsigned long num_e, fileLen, pack_t_num,pack_size=128;
 	int pack_num=1;//*DEBUG*
 	char *buffer;     
@@ -293,8 +303,8 @@ int cin_load_firmware(struct cin_port* cp,char *filename){
 		//Read file and send in packets       
 		num_e=fread(buffer,pack_size, 1, file);	
 		while (num_e!= 0  ){         	
-			status=cin_stream_write(cp, buffer,sizeof(buffer));
-			if (status != 0){goto error;} 		
+			_status=cin_stream_write(cp, buffer,sizeof(buffer));
+			if (_status != 0){goto error;} 		
 
 			//	cp->write_bin(buffer,1);        //needs to write to CIN_STREAM_IN_PORT   
 			fprintf(stdout,"Pack %u of %lu sent; Read:%lu \n ",pack_num,pack_t_num,num_e);//*DEBUG*
@@ -321,85 +331,85 @@ int cin_load_firmware(struct cin_port* cp,char *filename){
 /*TODO:-Check that clock is properlly set*/
 int cin_set_fclk_125mhz(struct cin_port* cp){
 	
-	int status;
+	int _status;
 	
 	fprintf(stdout,"\n****Set CIN FCLK to 125MHz****\n");
 	//# Freeze DCO
-	status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB089);
-	if (status != 0){goto error;}
-	status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xF010);
-	if (status != 0){goto error;}
-	status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-	if (status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB089);
+	if (_status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xF010);
+	if (_status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+	if (_status != 0){goto error;}
 	fprintf(stdout,"  Write to Reg 137 - Freeze DCO\n");
 	fprintf(stdout,"  Set Si570 Oscillator Freq to 125MHz\n");
 
 	//# WR Reg 7
-	status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB007);
-	if (status != 0){goto error;}
-	status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xF002);
-	if (status != 0){goto error;}
-	status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-	if (status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB007);
+	if (_status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xF002);
+	if (_status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+	if (_status != 0){goto error;}
 
 	//# WR Reg 8
-	status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB008);
-	if (status != 0){goto error;}
-	status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xF042);
-	if (status != 0){goto error;}
-	status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-	if (status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB008);
+	if (_status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xF042);
+	if (_status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+	if (_status != 0){goto error;}
 
 	//# WR Reg 9
-	status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB009);
-	if (status != 0){goto error;}
-	status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xF0BC);
-	if (status != 0){goto error;}
-	status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-	if (status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB009);
+	if (_status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xF0BC);
+	if (_status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+	if (_status != 0){goto error;}
 
 	//# WR Reg 10
-	status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB00A);
-	if (status != 0){goto error;}
-	status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xF019);
-	if (status != 0){goto error;}
-	status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-	if (status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB00A);
+	if (_status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xF019);
+	if (_status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+	if (_status != 0){goto error;}
 
 	//# WR Reg 11
-	status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB00B);
-	if (status != 0){goto error;}
-	status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xF06D);
-	if (status != 0){goto error;}
-	status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-	if (status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB00B);
+	if (_status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xF06D);
+	if (_status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+	if (_status != 0){goto error;}
 
 	//# WR Reg 12
-	status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB00C);
-	if (status != 0){goto error;}
-	status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xF08F);
-	if (status != 0){goto error;}
-	status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-	if (status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB00C);
+	if (_status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xF08F);
+	if (_status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+	if (_status != 0){goto error;}
 
 	//# UnFreeze DCO
-	status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB089);
-	if (status != 0){goto error;}
-	status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xF000);
-	if (status != 0){goto error;}
-	status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-	if (status != 0){goto error;}
-	status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB087);
-	if (status != 0){goto error;}
-	status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xF040);
-	if (status != 0){goto error;}
-	status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-	if (status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB089);
+	if (_status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xF000);
+	if (_status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+	if (_status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB087);
+	if (_status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xF040);
+	if (_status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+	if (_status != 0){goto error;}
 	
 	fprintf(stdout,"  Write to Reg 137 - UnFreeze DCO & Start Oscillator\n");
 	//# Set Clock&Bias Time Contant
-	status=cin_ctl_write(cp,REG_CCDFCLKSELECT_REG,0x0000);
-	if (status != 0){goto error;}
+	_status=cin_ctl_write(cp,REG_CCDFCLKSELECT_REG,0x0000);
+	if (_status != 0){goto error;}
 	return 0;
 	
 	error:{
@@ -408,64 +418,64 @@ int cin_set_fclk_125mhz(struct cin_port* cp){
 	}	
 }
 /*TODO:-Check Boolean comparisons*/
-int cin_get_fclk_status(struct cin_port* cp){ 
+int cin_get_fclk__status(struct cin_port* cp){ 
 
-	int status;
+	int _status;
 	uint32_t _reg,_reg7,_reg8,_reg9,_reg10,_reg11,_reg12,_val7,_val8;
 	uint32_t _n1,interger,decimal;
 	uint32_t _regfclksel,_valfclksel;
 
 	fprintf(stdout,"\n**** CIN FCLK Configuration ****\n");
-	status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB089);
-	if (status != 0){goto error;}		
+	_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB089);
+	if (_status != 0){goto error;}		
 	_reg= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);//Is this an 8 element hex string??
 	fprintf(stdout,"  FCLK OSC MUX SELECT : %#08X \n",_reg);//Assumes 8 element hexstring
 
 	//The statements below assume an 8 element string and use hex elements 4 to 8 of string
 	if(_reg & 0x000F0000){ //if(regval[4:5] == "F") 
 		//# Freeze DCO
-		status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB189);
-		if (status != 0){goto error;}
-		status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-		if (status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB189);
+		if (_status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+		if (_status != 0){goto error;}
 		_reg= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
 		if(_reg != 0x80000000){//if (reg_val[6:] != "08") 
 			fprintf(stdout,"  Status Reg : %#08X",_reg);
 		}
-		status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB107);
-		if (status != 0){goto error;}
-		status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-		if (status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB107);
+		if (_status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+		if (_status != 0){goto error;}
 		_reg7= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
 	
-		status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB108);
-		if (status != 0){goto error;}
-		status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-		if (status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB108);
+		if (_status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+		if (_status != 0){goto error;}
 		_reg8= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
 
-		status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB109);
-		if (status != 0){goto error;}
-		status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+		_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB109);
+		if (_status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
 		_reg9= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
-		if (status != 0){goto error;}
+		if (_status != 0){goto error;}
 
-		status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB10A);
-		if (status != 0){goto error;}
-		status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-		if (status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB10A);
+		if (_status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+		if (_status != 0){goto error;}
 		_reg10= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
 
-		status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB10B);
-		if (status != 0){goto error;}
-		status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-		if (status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB10B);
+		if (_status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+		if (_status != 0){goto error;}
 		_reg11= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
 
-		status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB10C);
-		if (status != 0){goto error;}
-		status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-		if (status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB10C);
+		if (_status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+		if (_status != 0){goto error;}
 		_reg12= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
 	
 		_val7 =(_reg7 &	0x000000FF);//bin_reg7 = bin(int(reg_val7[6:],16))[2:].zfill(8)
@@ -676,16 +686,16 @@ int cin_get_power_status(struct cin_port* cp) {
 /******************* CIN Control *************************/
 int cin_set_bias(struct cin_port* cp,int val){
 
-	int status;
+	int _status;
 	
 	if (val==1){
-		status=cin_ctl_write(cp,REG_BIASCONFIGREGISTER0_REG, 0x0001);
-		if (status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_BIASCONFIGREGISTER0_REG, 0x0001);
+		if (_status != 0){goto error;}
 		fprintf(stdout,"Bias ON\n");
 	}
 	else if (val==0){
-		status=cin_ctl_write(cp,REG_BIASCONFIGREGISTER0_REG, 0x0000);
-		if (status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_BIASCONFIGREGISTER0_REG, 0x0000);
+		if (_status != 0){goto error;}
 		fprintf(stdout,"Bias OFF\n");
 	}
 	else{
@@ -701,16 +711,16 @@ int cin_set_bias(struct cin_port* cp,int val){
 
 int cin_set_clocks(struct cin_port* cp,int val){
 
-	int status;   
+	int _status;   
 	
 	if (val==1){
-		status=cin_ctl_write(cp,REG_CLOCKCONFIGREGISTER0_REG, 0x0001);
-		if (status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_CLOCKCONFIGREGISTER0_REG, 0x0001);
+		if (_status != 0){goto error;}
 		fprintf(stdout,"Clocks ON\n");
 	}
 	else if (val==0){
-		status=cin_ctl_write(cp,REG_CLOCKCONFIGREGISTER0_REG, 0x0000);
-		if (status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_CLOCKCONFIGREGISTER0_REG, 0x0000);
+		if (_status != 0){goto error;}
 		fprintf(stdout,"Clocks OFF\n");
 	}
 	else{
@@ -726,26 +736,26 @@ int cin_set_clocks(struct cin_port* cp,int val){
 /*TODO:-Malformed packet when MSB=0x0000*/
 int cin_set_trigger(struct cin_port* cp,int val){
 
-	int status;
+	int _status;
 	
 	if (val==0){
-		status=cin_ctl_write(cp,REG_TRIGGERMASK_REG, 0x0000);//Internal trigger
-		if (status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_TRIGGERMASK_REG, 0x0000);//Internal trigger
+		if (_status != 0){goto error;}
 		fprintf(stdout,"Trigger set to Internal\n");
 	}
 	else if (val==1){
-		status=cin_ctl_write(cp,REG_TRIGGERMASK_REG, 0x0001);//External trigger chan 1
-		if (status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_TRIGGERMASK_REG, 0x0001);//External trigger chan 1
+		if (_status != 0){goto error;}
 		fprintf(stdout,"Trigger set to External 1\n");
 	}
 	else if (val==2){
-		status=cin_ctl_write(cp,REG_TRIGGERMASK_REG, 0x0002);//External trigger chan 2
-		if (status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_TRIGGERMASK_REG, 0x0002);//External trigger chan 2
+		if (_status != 0){goto error;}
 		fprintf(stdout,"Trigger set to External 2\n");
 	}
 	else if (val==3){
-		status=cin_ctl_write(cp,REG_TRIGGERMASK_REG, 0x0003);//External trigger chan 1 or 2
-		if (status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_TRIGGERMASK_REG, 0x0003);//External trigger chan 1 or 2
+		if (_status != 0){goto error;}
 		fprintf(stdout,"Trigger set to External (1 or 2)\n");
 	}
 	else{
@@ -794,7 +804,7 @@ int cin_get_trigger_status (struct cin_port* cp){
 /*TODO:-Malformed packet when MSB=0x0000*/
 int cin_set_exposure_time(struct cin_port* cp,float ftime){  //Set the Camera exposure time
 
- 	int status;
+ 	int _status;
   uint32_t _time, _msbval,_lsbval;
   float _fraction;
 
@@ -813,11 +823,11 @@ int cin_set_exposure_time(struct cin_port* cp,float ftime){  //Set the Camera ex
  		_lsbval=(uint32_t)(_time & 0xffff);
 		//fprintf(stdout,"MSB Hex value:0x%04x\n",_msbval);
 		//fprintf(stdout,"LSB Hex value:0x%04x\n",_lsbval);
-		status=cin_ctl_write(cp,REG_EXPOSURETIMEMSB_REG,_msbval);
-		if (status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_EXPOSURETIMEMSB_REG,_msbval);
+		if (_status != 0){goto error;}
 		
-		status=cin_ctl_write(cp,REG_EXPOSURETIMELSB_REG,_lsbval);
-		if (status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_EXPOSURETIMELSB_REG,_lsbval);
+		if (_status != 0){goto error;}
 
 		return 0;
 	}
@@ -829,7 +839,7 @@ int cin_set_exposure_time(struct cin_port* cp,float ftime){  //Set the Camera ex
 /*TODO:-Malformed packet when MSB=0x0000*/
 int cin_set_trigger_delay(struct cin_port* cp,float ftime){  //Set the trigger delay
 	
-	int status;
+	int _status;
 	uint32_t _time, _msbval,_lsbval;
   float _fraction;
 
@@ -848,11 +858,11 @@ int cin_set_trigger_delay(struct cin_port* cp,float ftime){  //Set the trigger d
 		//fprintf(stdout,"MSB Hex value:0x%04x\n",_msbval);
 		//fprintf(stdout,"LSB Hex value:0x%04x\n",_lsbval)
 
-		status=cin_ctl_write(cp,REG_DELAYTOEXPOSUREMSB_REG,_msbval);
-		if (status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_DELAYTOEXPOSUREMSB_REG,_msbval);
+		if (_status != 0){goto error;}
 	
-		status=cin_ctl_write(cp,REG_DELAYTOEXPOSURELSB_REG,_lsbval);
-		if (status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_DELAYTOEXPOSURELSB_REG,_lsbval);
+		if (_status != 0){goto error;}
 	
 		return 0;
 	}
@@ -864,7 +874,7 @@ int cin_set_trigger_delay(struct cin_port* cp,float ftime){  //Set the trigger d
 /*TODO:-Malformed packet when MSB=0x0000*/
 int cin_set_cycle_time(struct cin_port* cp,float ftime){
 
-	int status;
+	int _status;
 	uint32_t _time, _msbval,_lsbval;
   float _fraction;
   													
@@ -882,11 +892,11 @@ int cin_set_cycle_time(struct cin_port* cp,float ftime){
  		_lsbval=(uint32_t)(_time & 0xffff);
 		//fprintf(stdout,"MSB Hex value:0x%04x\n",_msbval);
 		//fprintf(stdout,"LSB Hex value:0x%04x\n",_lsbval);
-		status=cin_ctl_write(cp,REG_TRIGGERREPETITIONTIMEMSB_REG,_msbval);
-		if (status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_TRIGGERREPETITIONTIMEMSB_REG,_msbval);
+		if (_status != 0){goto error;}
 	
-		status=cin_ctl_write(cp,REG_TRIGGERREPETITIONTIMELSB_REG,_lsbval);
-		if (status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_TRIGGERREPETITIONTIMELSB_REG,_lsbval);
+		if (_status != 0){goto error;}
 		
 		return 0;
 	}
@@ -899,11 +909,11 @@ int cin_set_cycle_time(struct cin_port* cp,float ftime){
 
 /******************* Frame Acquisition *************************/
 int cin_set_frame_count_reset(struct cin_port* cp){
-	int status;
+	int _status;
 
-	status=cin_ctl_write(cp,REG_FRM_COMMAND, 0x0106);		
+	_status=cin_ctl_write(cp,REG_FRM_COMMAND, 0x0106);		
 
-	if (status != 0){goto error;}
+	if (_status != 0){goto error;}
 			
 	fprintf(stdout,"Frame count set to 0\n");
 	return 0;
