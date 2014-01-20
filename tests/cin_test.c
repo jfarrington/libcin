@@ -28,7 +28,7 @@ int main() {
 	cin_init_ctl_port(&cp[1], 0,CIN_DATA_CTL_PORT);/* use CIN control data port *
 
 /*Test Functions*/	
-   
+/*  
   cin_off(&cp[0]);
 	sleep(1);
 
@@ -46,7 +46,7 @@ int main() {
 
 	cin_load_config(&cp[0],cin_waveform_config);	//Load FCCD clock configuration
 	sleep(3);
-/**//*
+*//*
 */
 /*cin_set_fclk_125mhz(&cp[0]);
 	sleep(1);
@@ -56,7 +56,7 @@ int main() {
 
 	cin_get_cfg_fpga_status(&cp[0]);
 	sleep(1);
-*/	
+	
 	cin_get_power_status(&cp[0]);
 	sleep(1);
         
@@ -82,13 +82,15 @@ int main() {
     
 	cin_set_exposure_time(&cp[0],135.00);
 	sleep(1);
-	/*	
+	
 	cin_set_trigger_delay(&cp[0],135.00);
 	sleep(1);
 	
 	cin_set_cycle_time(&cp[0],135.00);
 	sleep(1);
-
+*/
+	cin_set_frame_count_reset(&cp[0]);
+/*
 	cin_test_cfg_leds(&cp[0]);
   sleep(2);
 */
