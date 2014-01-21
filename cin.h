@@ -11,6 +11,13 @@
 extern "C" {
 #endif
 
+/* -------------------------------------------------------------------------------
+ *
+ * Global definitions
+ *
+ * -------------------------------------------------------------------------------
+ */
+
 #define CIN_CTL_IP                   "192.168.1.207"
 #define CIN_CTL_PORT                 49200
 
@@ -29,6 +36,27 @@ extern "C" {
 #define CIN_DATA_FRAME_SIZE          4432584
 #define CIN_DATA_DROPPED_PACKET_VAL  0x0
 #define CIN_DATA_RCVBUF              100  // Mb 
+
+/* -------------------------------------------------------------------------------
+ *
+ * MACROS for debugging
+ *
+ * -------------------------------------------------------------------------------
+ */
+
+#ifdef __DEBUG__
+  #define DEBUG_PRINT(fmt, ...) \
+    if(1) { fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, __LINE__, __func__, __VA_ARGS__); }
+#else
+  #define DEBUG_PRINT(...) do {}while(0)
+#endif
+
+/* -------------------------------------------------------------------------------
+ *
+ * Global datastructures
+ *
+ * -------------------------------------------------------------------------------
+ */
 
 struct cin_port {
     char *srvaddr;
@@ -50,8 +78,23 @@ struct cin_data_frame {
   struct timespec timestamp;
 };
 
+struct cin_data_stats {
+  int last_frame;
+  double framerate;
+  double packet_percent_full;
+  double frame_percent_full;
+  double image_percent_full;
+  long int dropped_packets;
+  long int mallformed_packets;
+};
 
-/* prototypes */
+/* -------------------------------------------------------------------------------
+ *
+ * CIN Control Routines
+ *
+ * -------------------------------------------------------------------------------
+ */
+
 int cin_init_ctl_port(struct cin_port* cp, char* ipaddr, uint16_t port);
 uint16_t cin_ctl_read(struct cin_port* cp, uint16_t reg);
 int cin_ctl_write(struct cin_port* cp, uint16_t reg, uint16_t val);
@@ -61,8 +104,12 @@ void cin_power_up();
 void cin_power_down();
 void cin_report_power_status();
 
-
-/* cindata prototypes */
+/* -------------------------------------------------------------------------------
+ *
+ * CIN Data Routines
+ *
+ * -------------------------------------------------------------------------------
+ */
 
 int cin_init_data_port(struct cin_port* dp,
                        char* ipaddr, uint16_t port,
@@ -71,15 +118,20 @@ int cin_init_data_port(struct cin_port* dp,
 int cin_data_read(struct cin_port* dp, unsigned char* buffer);
 int cin_data_write(struct cin_port* dp, unsigned char* buffer, int buffer_len);
 
-int cin_data_init(int packet_buffer_len, int frame_buffer_len);
+int cin_data_init(int packet_buffer_len, int frame_buffer_len, int show_stats);
 void cin_data_wait_for_threads(void);
 int cin_data_stop_threads(void);
 
 struct cin_data_frame* cin_data_get_next_frame(void);
 void cin_data_release_frame(int free_mem);
 
+struct cin_data_frame* cin_data_get_buffered_frame(void);
+void cin_data_release_buffered_frame(void);
+
+struct cin_data_stats cin_data_get_stats(void);
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif
+#endif //__CIN_H__
