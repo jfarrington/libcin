@@ -41,12 +41,16 @@ int main(int argc, char *argv[]){
     }
   }
 
-  if(cin_init_data_port(&port, NULL, 0, NULL, 0, 0)){
+  if ( (j=cin_init_data_port(&port, NULL, 0, NULL, 0, 0)) ){
+    printf("error: cin_init_data_port:%d\n", j);
     exit(1);
   }
 
+  printf("port.srvaddr = %s\n", port.srvaddr);
+  
   /* Start the main routine */
-  if(cin_data_init()){
+  if( (j=cin_data_init()) ){
+    printf("error: cin_data_init:%d\n", j);
     exit(1);
   }
 

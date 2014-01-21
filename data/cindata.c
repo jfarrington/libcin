@@ -159,13 +159,14 @@ int cin_data_init(void){
   }
   thread_data.frame_fifo  = malloc(sizeof(fifo));
   if(!thread_data.frame_fifo){
-    return 1;
+    return 2;
   }
 
   /* Packet FIFO */
 
-  if(fifo_init(thread_data.packet_fifo, sizeof(struct cin_data_packet), 20000) == FALSE){
-    return 1;
+//  if(fifo_init(thread_data.packet_fifo, sizeof(struct cin_data_packet), 20000) == FALSE){
+  if(fifo_init(thread_data.packet_fifo, sizeof(struct cin_data_packet), 50) == FALSE){
+    return 3;
   }
 
   /* For the packet fifo we allocate the memory here
@@ -178,7 +179,7 @@ int cin_data_init(void){
   for(i=0;i<thread_data.packet_fifo->size;i++){
     p->data = malloc(sizeof(unsigned char) * CIN_DATA_MAX_MTU);
     if(p->data == NULL){
-      return 1;
+      return 4;
     }
     p->size = 0;
     p++;
@@ -186,8 +187,9 @@ int cin_data_init(void){
 
   /* Frame FIFO */
 
-  if(fifo_init(thread_data.frame_fifo, sizeof(struct cin_data_frame), 20000) == FALSE){
-    return 1;
+  //if(fifo_init(thread_data.frame_fifo, sizeof(struct cin_data_frame), 20000) == FALSE){
+  if(fifo_init(thread_data.frame_fifo, sizeof(struct cin_data_frame), 50) == FALSE){
+    return 5;
   }
 
   /* For the frame fifo we just initialize the elements but do not
@@ -200,7 +202,7 @@ int cin_data_init(void){
     //q->data              = (uint16_t *)NULL;  
     q->data = malloc(sizeof(uint16_t) * CIN_DATA_FRAME_WIDTH * CIN_DATA_FRAME_HEIGHT);
     if(q->data == NULL){
-      return 1;
+      return 6;
     }
     q->number            = 0;
     q->timestamp.tv_sec  = 0;
