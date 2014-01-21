@@ -45,12 +45,14 @@ int main(int argc, char *argv[]){
     }
   }
 
-  if(cin_init_data_port(&port, NULL, 0, NULL, 0, 0)){
+  fprintf(stderr, "\n\n\n\n");
+
+  if(cin_init_data_port(&port, NULL, 0, NULL, 0, 1000)){
     exit(1);
   }
 
   /* Start the main routine */
-  if(cin_data_init(2000000, 20000)){
+  if(cin_data_init(2000000, 20000, 1)){
     exit(1);
   }
 
@@ -98,6 +100,8 @@ int main(int argc, char *argv[]){
   }
 
   cin_data_wait_for_threads();
+
+  fprintf(stderr, "\n\n\n\n");
 
   return(0);
 }
