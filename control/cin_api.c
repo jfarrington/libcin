@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <unistd.h> /* for sleep() */
 
 #include "cin.h"
 #include "cin_register_map.h"
@@ -235,37 +236,36 @@ int cin_fp_off(struct cin_port* cp){
 /*TODO:-Check that file is loaded properly*/
 int cin_load_config(struct cin_port* cp,char *filename){
 
+ 	int i=1;//DEBUG 
   int _status;
-  unsigned int read_reg, read_val, REG, VAL;
-//  uint16_t read_reg, read_val, REG, VAL;
-  unsigned int i=1;//*DEBUG* 
-  char reg_str[12],val_str[12],line [1024];
+  uint32_t _regul,_valul;
+	char _regstr[12],_valstr[12],_line [1024];
 
   FILE *file = fopen ( filename, "r" );
 	if (file != NULL) {  
 		fprintf(stdout,"\n****Send CIN configuration file****\n");
-		while(fgets(line,sizeof line,file)!= NULL){ /* read a line from a file */     
-			line[strlen(line)-1]='\0';   
-      fprintf(stdout,"line%u:  %c%c%c%c ",i,line[0],line[1],line[2],line[3]);//*DEBUG* 
-      i++;  //*DEBUG*
-      if ('#' == line[0]||'\0' == line[0]){   
-        fprintf(stdout,"Ignore line\n");//*DEBUG* 
+
+		while(fgets(_line,sizeof _line,file)!= NULL){ /* read a line from a file */     
+			_line[strlen(_line)-1]='\0';   
+//      fprintf(stdout,"line%u:  %c%c%c%c\n",i,_line[0],_line[1],_line[2],_line[3]);//DEBUG 
+			fprintf(stdout,"line%u:",i);//DEBUG
+      i++;  //DEBUG
+      if ('#' == _line[0]||'\0' == _line[0]){   
+        fprintf(stdout," Ignore line\n");//DEBUG 
       }
       else {
-      	sscanf (line,"%04x %04x",&read_reg,&read_val);
-        sprintf(reg_str,"0x%04x",read_reg);
-        sprintf(val_str,"0x%04x",read_val);
-        sscanf(reg_str, "%x", &REG);
-        sscanf(val_str, "%x", &VAL);
-
-        _status=cin_ctl_write(cp,REG,VAL);//	WriteReg( read_addr, read_data, 0 ) 
+    		sscanf (_line,"%s %s",_regstr,_valstr);
+        _regul=strtoul(_regstr,NULL,16);
+        _valul=strtoul(_valstr,NULL,16);				
+				usleep(10000);   /*for flow control*/ 
+   
+        _status=cin_ctl_write(cp,_regul,_valul);//	WriteReg( read_addr, read_data, 0 ) 
         if (_status != 0){goto error;}    
-
-        fprintf(stdout," Get line: %04x %04x\n",REG,VAL);//*DEBUG*  
+        fprintf(stdout," Get line:	%04x %04x\n",_regul,_valul);//DEBUG  
       }   
-      memset(line,'\0',sizeof(line));
+      memset(_line,'\0',sizeof(_line));
     }
-    fprintf(stdout,"\nCIN Configuration sent!\n");//*DEBUG* 
+    fprintf(stdout,"\nCIN Configuration sent!\n");//DEBUG 
     fclose(file);
   }
   else {
@@ -281,10 +281,10 @@ int cin_load_config(struct cin_port* cp,char *filename){
 /*TODO:-Check that file is loaded properly*/
 int cin_load_firmware(struct cin_port* cp,char *filename){
 	
-	//uint32_t num_e, fileLen, pack_t_num,pack_size=128;
+	uint32_t num_e, fileLen, pack_t_num,pack_size=128;
   int _status;
-	unsigned long num_e, fileLen, pack_t_num,pack_size=128;
-	int pack_num=1;//*DEBUG*
+	//unsigned long num_e, fileLen, pack_t_num,pack_size=128;
+	int pack_num=1;//DEBUG
 	char *buffer;     
 	
 	FILE *file= fopen(filename, "rb");
@@ -305,11 +305,9 @@ int cin_load_firmware(struct cin_port* cp,char *filename){
 		while (num_e!= 0  ){         	
 			_status=cin_stream_write(cp, buffer,sizeof(buffer));
 			if (_status != 0){goto error;} 		
-
-			//	cp->write_bin(buffer,1);        //needs to write to CIN_STREAM_IN_PORT   
-			fprintf(stdout,"Pack %u of %lu sent; Read:%lu \n ",pack_num,pack_t_num,num_e);//*DEBUG*
+			fprintf(stdout,"Pack %u of %lu sent; Read:%lu \n ",pack_num,pack_t_num,num_e);//DEBUG
 			num_e=fread(buffer,pack_size, 1, file);
-			pack_num++;//*DEBUG*
+			pack_num++;//DEBUG*
 		}  
 		pack_num--;
 		fprintf(stdout,"File size:%luB \n",fileLen); //*DEBUG*
@@ -517,7 +515,7 @@ int cin_get_fclk_status(struct cin_port* cp){
 			fprintf(stdout,"  FCLK Frequency UNKNOWN\n");
 		}
 	}
-	
+		
 	else if(((_reg & 0x00000010) & 0xD0) == 0x20){//elif (str(int(regval[4:5])&1110) == "2") 
 		fprintf(stdout,"  FCLK Frequency = 250 MHz\n"); 
 	}
