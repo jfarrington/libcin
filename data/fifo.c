@@ -8,9 +8,6 @@
 #include "cin.h"
 #include "fifo.h"
 
-#define TRUE 1
-#define FALSE 0
-
 /* -----------------------------------------------------------------------------------------
  *
  * FIFO Functions
@@ -24,7 +21,7 @@ int fifo_init(fifo *f, int elem_size, long int size){
 
   f->data = malloc(size * (long int)elem_size);
   if(f->data == NULL){
-    return FALSE;
+    return FIFO_ERR_MEMORY;
   } 
 
   /* set the initial parameters */
@@ -40,14 +37,14 @@ int fifo_init(fifo *f, int elem_size, long int size){
   f->head = f->data;
   f->tail = f->data;
 
-  f->full = FALSE;
+  f->full = 0;
 
   /* Setup mutex */
 
   pthread_mutex_init(&f->mutex,NULL);
   pthread_cond_init(&f->signal, NULL);
 
-  return TRUE;
+  return FIFO_NOERR;
 }
 
 long int fifo_used_bytes(fifo *f){
@@ -60,6 +57,10 @@ long int fifo_used_bytes(fifo *f){
   }
 
   return bytes;
+}
+
+long int fifo_used_elements(fifo *f){
+  return fifo_used_bytes(f) / f->elem_size;
 }
 
 double fifo_percent_full(fifo *f){
@@ -88,16 +89,16 @@ void fifo_advance_head(fifo *f){
   pthread_mutex_lock(&f->mutex);
 
   if((f->head == f->end) && (f->tail == f->data)){
-    f->full = TRUE;
+    f->full = 1;
   } else if((f->head + f->elem_size) == f->tail){
     /* FIFO is full. Don't increment */
-    f->full = TRUE;
+    f->full = 1;
   } else if(f->head == f->end){
     f->head = f->data;
-    f->full = FALSE;
+    f->full = 0;
   } else {
     f->head += f->elem_size;
-    f->full = FALSE;
+    f->full = 0;
   }
 
   pthread_cond_signal(&f->signal);

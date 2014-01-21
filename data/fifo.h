@@ -7,6 +7,11 @@
 extern "C" {
 #endif
 
+/* Macro Definitions */
+
+#define FIFO_ERR_MEMORY 1
+#define FIFO_NOERR      0
+
 /* Datastructures */
 
 typedef struct {
@@ -49,6 +54,7 @@ void fifo_advance_tail(fifo *f);
 int fifo_init(fifo *f, int elem_size, long int size);
 long int fifo_used_bytes(fifo *f);
 double fifo_percent_full(fifo *f);
+long int fifo_used_elements(fifo *f);
 
 #ifdef __cplusplus
 }
