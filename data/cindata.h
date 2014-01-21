@@ -1,21 +1,16 @@
 #ifndef __CIN_DATA__H 
 #define __CIN_DATA__H
 
+#include "mbuffer.h"
+#include "fifo.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /* Definitions */
 
-#ifndef TRUE
-#define TRUE  1
-#endif
-
-#ifndef FALSE
-#define FALSE 0
-#endif
-
-#define MAX_THREADS             5
+#define MAX_THREADS  5
 
 /* Datastructures */
 
@@ -24,6 +19,9 @@ struct cin_data_thread_data {
   fifo *packet_fifo;  
   fifo *frame_fifo;
   fifo *image_fifo;
+
+  /* Image double buffer */
+  mbuffer_t *image_dbuffer;
 
   /* Interface */
   struct cin_port* dp; 
@@ -34,6 +32,8 @@ struct cin_data_thread_data {
   unsigned long int mallformed_packets;
   uint16_t last_frame;
 
+  struct cin_data_stats stats;
+  pthread_mutex_t stats_mutex;
 };
 
 struct cin_data_packet {
@@ -50,6 +50,7 @@ void *cin_data_listen_thread(void);
 void *cin_data_monitor_thread(void);
 void *cin_data_assembler_thread(void);
 void *cin_data_descramble_thread(void);
+void *cin_data_monitor_output_thread(void);
 
 /* Profiling Functions */
 struct timespec timespec_diff(struct timespec start, struct timespec end);
