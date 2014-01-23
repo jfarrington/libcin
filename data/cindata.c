@@ -628,7 +628,6 @@ void* cin_data_descramble_thread(void *args){
 
     dsmap_p = dsmap;
     data_p  = frame->data;
-    DEBUG_PRINT("Start (%p)\n", image->data);
     for(i=0;i<(CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH);i++){
       image->data[*dsmap_p] = *data_p;
       //buffer->data[*dsmap_p] = *data_p;
@@ -642,8 +641,6 @@ void* cin_data_descramble_thread(void *args){
     //buffer->number = frame->number;
   
     // Release the frame and the image
-
-    DEBUG_COMMENT("Done\n");
 
     (*proc->input_put)(proc->input_args);
     (*proc->output_put)(proc->output_args);
@@ -741,21 +738,21 @@ struct cin_data_stats cin_data_get_stats(void){
  */
 
 int cin_data_load_frame(uint16_t *buffer, uint16_t *frame_num){
-  DEBUG_PRINT("Called with %p\n", buffer);
+  //DEBUG_PRINT("Called with %p\n", buffer);
   pthread_mutex_lock(&thread_data.image_buffer->mutex);
 
   // Load the buffer pointer into the buffer
   thread_data.image_buffer->data->data = buffer;
-  DEBUG_PRINT("Data = %p\n", thread_data.image_buffer->data->data);
+  //DEBUG_PRINT("Data = %p\n", thread_data.image_buffer->data->data);
   thread_data.image_buffer->waiting = 1;
   pthread_cond_signal(&thread_data.image_buffer->signal_push);
-  DEBUG_COMMENT("Sent Signal\n");
+  //DEBUG_COMMENT("Sent Signal\n");
 
   // Now wait for the data to be copied
   pthread_cond_wait(&thread_data.image_buffer->signal_pop, 
                     &thread_data.image_buffer->mutex);
 
-  DEBUG_COMMENT("Got Signal\n");
+  //DEBUG_COMMENT("Got Signal\n");
   *frame_num = thread_data.image_buffer->data->number;
 
   // We are no longer waiting
@@ -764,7 +761,7 @@ int cin_data_load_frame(uint16_t *buffer, uint16_t *frame_num){
   // Now we have a valid image, we can return
   pthread_mutex_unlock(&thread_data.image_buffer->mutex);
 
-  DEBUG_COMMENT("Returning\n");
+  //DEBUG_COMMENT("Returning\n");
 
   return 0;
 }
@@ -774,16 +771,16 @@ void* cin_data_buffer_push(void *arg){
   image_buffer_t *buffer = (image_buffer_t*)arg;
 
   pthread_mutex_lock(&buffer->mutex);
-  DEBUG_COMMENT("START\n");
+  //DEBUG_COMMENT("START\n");
   if(!buffer->waiting){
     // If the waiting flag has gone up
     // we signaled but this routine was not listening
-    DEBUG_COMMENT("Waiting\n");
+    //DEBUG_COMMENT("Waiting\n");
     pthread_cond_wait(&buffer->signal_push,
                       &buffer->mutex);
   }
   rtn = (void *)(buffer->data);
-  DEBUG_COMMENT("END\n");
+  //DEBUG_COMMENT("END\n");
   pthread_mutex_unlock(&buffer->mutex);
   return rtn;
 }
@@ -791,9 +788,9 @@ void* cin_data_buffer_push(void *arg){
 void cin_data_buffer_pop(void *arg){
   image_buffer_t *buffer = (image_buffer_t*)arg;
 
-  DEBUG_COMMENT("START\n");
+  //DEBUG_COMMENT("START\n");
   pthread_mutex_lock(&buffer->mutex);
   pthread_cond_signal(&buffer->signal_pop);
   pthread_mutex_unlock(&buffer->mutex);
-  DEBUG_COMMENT("END\n");
+  //DEBUG_COMMENT("END\n");
 }
