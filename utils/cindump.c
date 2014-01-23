@@ -53,14 +53,13 @@ int main(int argc, char *argv[]){
   }
 
   /* Start the main routine */
-  if(cin_data_init(2000, 2000, 0)){
+  if(cin_data_init(2000, 2000, 1)){
     exit(1);
   }
 
   signal(SIGINT, int_handler);
 
   while(1){
-    fprintf(stderr, "Buffer = %p\n", buffer);
     // Load the buffer
     cin_data_load_frame(buffer, &frame_number);
 
