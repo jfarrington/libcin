@@ -37,11 +37,11 @@ extern "C" {
 #define CIN_DATA_DROPPED_PACKET_VAL  0x0
 #define CIN_DATA_RCVBUF              100  // Mb 
 
-/* -------------------------------------------------------------------------------
+/* ---------------------------------------------------------------------
  *
  * MACROS for debugging
  *
- * -------------------------------------------------------------------------------
+ * ---------------------------------------------------------------------
  */
 
 #ifdef __DEBUG__
@@ -51,11 +51,18 @@ extern "C" {
   #define DEBUG_PRINT(...) do {}while(0)
 #endif
 
-/* -------------------------------------------------------------------------------
+#ifdef __DEBUG__
+  #define DEBUG_COMMENT(fmt)\
+    if(1) { fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, __LINE__, __func__); }
+#else
+  #define DEBUG_COMMENT(...) do {}while(0)
+#endif
+
+/* ---------------------------------------------------------------------
  *
  * Global datastructures
  *
- * -------------------------------------------------------------------------------
+ * ---------------------------------------------------------------------
  */
 
 struct cin_port {
@@ -68,15 +75,15 @@ struct cin_port {
     struct sockaddr_in sin_srv; /* server info */
     struct sockaddr_in sin_cli; /* client info (us!) */
     socklen_t slen; /* for recvfrom() */
-    unsigned long int rcvbuf; /* For setting data recieve buffer */
-    unsigned long int rcvbuf_rb; /* For readback */
+    int rcvbuf; /* For setting data recieve buffer */
+    int rcvbuf_rb; /* For readback */
 };
 
-struct cin_data_frame {
-  uint16_t data[CIN_DATA_MAX_PACKETS * CIN_DATA_PACKET_LEN];
+typedef struct cin_data_frame {
+  uint16_t *data;
   uint16_t number;
   struct timespec timestamp;
-};
+} cin_data_frame_t;
 
 struct cin_data_stats {
   int last_frame;
@@ -104,19 +111,19 @@ void cin_power_up();
 void cin_power_down();
 void cin_report_power_status();
 
-/* -------------------------------------------------------------------------------
+/* ---------------------------------------------------------------------
  *
  * CIN Data Routines
  *
- * -------------------------------------------------------------------------------
+ * ---------------------------------------------------------------------
  */
 
 int cin_init_data_port(struct cin_port* dp,
                        char* ipaddr, uint16_t port,
                        char* cin_ipaddr, uint16_t cin_port,
-                       unsigned int rcvbuf);
+                       int rcvbuf);
 int cin_data_read(struct cin_port* dp, unsigned char* buffer);
-int cin_data_write(struct cin_port* dp, unsigned char* buffer, int buffer_len);
+int cin_data_write(struct cin_port* dp, char* buffer, int buffer_len);
 
 int cin_data_init(int packet_buffer_len, int frame_buffer_len, int show_stats);
 void cin_data_wait_for_threads(void);
@@ -129,6 +136,8 @@ struct cin_data_frame* cin_data_get_buffered_frame(void);
 void cin_data_release_buffered_frame(void);
 
 struct cin_data_stats cin_data_get_stats(void);
+
+int cin_data_load_frame(uint16_t *buffer, uint16_t *frame_num);
 
 #ifdef __cplusplus
 }
