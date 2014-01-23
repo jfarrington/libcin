@@ -9,10 +9,9 @@
 
 #include "cin.h"
 
-static int keep_running = 1;
-
 void int_handler(int dummy){
-  keep_running = 0;
+  cin_data_stop_threads();
+  exit(0);
 }
 
 int main(int argc, char *argv[]){
@@ -30,7 +29,9 @@ int main(int argc, char *argv[]){
 
   /*   */
   struct cin_port port;
-  struct cin_data_frame *frame;
+
+  uint16_t buffer[CIN_DATA_FRAME_WIDTH * CIN_DATA_FRAME_HEIGHT];
+  uint16_t frame_number;
 
   while((c = getopt(argc, argv, "hr")) != -1){
     switch(c){
@@ -52,16 +53,19 @@ int main(int argc, char *argv[]){
   }
 
   /* Start the main routine */
-  if(cin_data_init(2000000, 20000, 1)){
+  if(cin_data_init(2000, 2000, 0)){
     exit(1);
   }
 
   signal(SIGINT, int_handler);
 
   while(1){
-    frame = cin_data_get_next_frame();
+    fprintf(stderr, "Buffer = %p\n", buffer);
+    // Load the buffer
+    cin_data_load_frame(buffer, &frame_number);
+
     if(tiff_output){
-      sprintf(filename, "frame%08d.tif", frame->number);
+      sprintf(filename, "frame%08d.tif", frame_number);
       tfp = TIFFOpen(filename, "w");
 
       TIFFSetField(tfp, TIFFTAG_IMAGEWIDTH, CIN_DATA_FRAME_WIDTH);
@@ -71,7 +75,7 @@ int main(int argc, char *argv[]){
       TIFFSetField(tfp, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
       TIFFSetField(tfp, TIFFTAG_ORIENTATION, ORIENTATION_BOTLEFT);
 
-      p = frame->data;
+      p = buffer;
       for(j=0;j<CIN_DATA_FRAME_HEIGHT;j++){
         TIFFWriteScanline(tfp, p, j, 0);
         p += CIN_DATA_FRAME_WIDTH;
@@ -80,23 +84,16 @@ int main(int argc, char *argv[]){
       TIFFClose(tfp);
 
     } else {
-      sprintf(filename, "frame%08d.bin", frame->number);
+      sprintf(filename, "frame%08d.bin", frame_number);
       fp = fopen(filename, "w");
       if(fp){
-        /* Compress stream */
-        fwrite(frame->data, sizeof(uint16_t),
+        fwrite(buffer, sizeof(uint16_t),
                CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH, fp);
         fclose(fp);
       }
 
     }
 
-    cin_data_release_frame(1);
-
-    if(!keep_running){
-      cin_data_stop_threads();
-      break;
-    }
   }
 
   cin_data_wait_for_threads();
