@@ -19,6 +19,7 @@ typedef struct {
   void *head;
   void *tail;
   void *end;
+  int *subscribers;
   long int size;
   int elem_size;
   int full;
