@@ -1,12 +1,12 @@
 include ../CONFIG
 
-CFLAGS+=-I.. -I../bindata
+CFLAGS+=-I.. 
 
 .PHONY : clean 
 
 all: cindata.o fifo.o mbuffer.o
 
-cindata.o: cindata.h descramble_map_forward.o ../cin.h
+cindata.o: cindata.h ../bindata/descramble_map_forward.o ../cin.h
 
 fifo.o: fifo.h 
 

@@ -1,6 +1,6 @@
 include CONFIG
 
-all: control data lib/libcin.a tests utils
+all: bindata control data lib/libcin.a tests utils
 
 # create dynamically and statically-linked libs.
 lib/libcin.a: $(LIBOBJECTS) 
@@ -22,6 +22,7 @@ clean:
 	$(MAKE) -C tests clean
 	$(MAKE) -C control clean
 	$(MAKE) -C utils clean
+	$(MAKE) -C bindata clean
 
 .PHONY :install
 install: all
