@@ -56,6 +56,7 @@ int main(int argc, char *argv[]){
         fprintf(stderr, "\t-d : delay in miliseconds between frames\n");
         fprintf(stderr, "\t-j : delay in nanoseconds between packets\n");
         fprintf(stderr, "\t-w : walk the test pattern by (n bits)\n");
+        fprintf(stderr, "\t-b : set the send buffer (in Mb)\n");
         fprintf(stderr, "\n");  
         exit(1);
         break;
