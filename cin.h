@@ -8,6 +8,7 @@
 #include <sys/time.h>
 
 #define CIN_CTL_IP                   "192.168.1.207"
+
 #define CIN_CTL_PORT                 49200
 
 #define CIN_DATA_IP                  "10.0.5.207"
@@ -64,14 +65,17 @@ int cin_fp_off(struct cin_port* cp);    				//Power OFF CIN front Panel
 /******************* CIN Configuration/Status *************************/
 int cin_load_config(struct cin_port* cp,char *filename);		//Load CIN Configuration File 
 																					/*TODO:-Check that file is loaded properly*/
-int cin_load_firmware(struct cin_port* cp,char *filename);  //Load CIN Firmware Configuration
+int cin_load_firmware(struct cin_port* cp,struct cin_port* dcp,char *filename);  //Load CIN Firmware Configuration  	
+								//Input:cp={control port},dcp={data control port} 
 																					/*TODO:-Check that file is loaded properly*/
-int cin_set_fclk_125mhz(struct cin_port* cp); 	     				//Set CIN clocks to 125MHz
-																					/*TODO:-Check that clock is properlly set*/
+																		
+int cin_set_fclk(struct cin_port* cp,uint16_t clkfreq); //Set CIN clocks
+								//Input:clkfreq={125, 180, 200 and 250}(MHz)
+																					/*TODO:-Check that clock is properlly set*/														
 int cin_get_fclk_status(struct cin_port* cp);   						//Get CIN clock status  		
 																					/*TODO:-Check Boolean comparisons*/
 int cin_get_cfg_fpga_status(struct cin_port* cp);				//Get CIN FPGA status 		
-																					/*TODO:-Check Boolean comparisons*/
+																				
 int cin_get_power_status(struct cin_port* cp);					//Get Camera/CIN power Status
 
 /**************************** CIN Control *****************************/
@@ -100,7 +104,7 @@ int cin_set_cycle_time(struct cin_port* cp,float c_time);	    //Set the Camera c
 int cin_set_frame_count_reset(struct cin_port* cp); 			//Sets CIN frame counter to 0
 
 /****************************** Testing *********************************/
-int cin_test_cfg_leds(struct cin_port* cp); 	        		//Flash configuration Leds in sequence	
+int cin_test_cfg_leds(struct cin_port* cp); 	        		//Flash configuration Leds in sequence
 
 
 /* cindata prototypes */

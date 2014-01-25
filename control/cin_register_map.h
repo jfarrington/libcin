@@ -60,8 +60,8 @@
 
 /* Frame FPGA Control */
 #define CMD_PROGRAM_FRAME			0x0041
-#define REG_FRM_RESET 				0x0036; /* Frame Reset */
-#define REG_FRM_10GbE_SEL			0x0037; /* 10GbE Link Select */
+#define REG_FRM_RESET 				0x0036 /* Frame Reset */
+#define REG_FRM_10GbE_SEL			0x0037 /* 10GbE Link Select */
 
 /* Clock Enables */
 #define CMD_ENABLE_CLKS				0x0031 /* Enable selected Frame FPGA clock crystals */

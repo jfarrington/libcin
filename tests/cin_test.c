@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <unistd.h> /* for sleep() */
 #include <string.h>
+#include <stdlib.h>
+
 #include "cin.h"
 
 int main(int argc, char *argv[]){
@@ -27,12 +29,18 @@ int main(int argc, char *argv[]){
 	cin_init_ctl_port(&cp[1], 0,CIN_DATA_CTL_PORT);/* use CIN control data port */
 	printf("*%s*\n",argv[1]);
 
-	if (strcmp(argv[1],"cin_on") == 0){
+	if (argv[1]==NULL){
+		printf("No option selected!\n\n");
+		goto options;
+	}	
+	else if (strcmp(argv[1],"cin_on") == 0){
 		cin_on(&cp[0]);
 	}
-
-	if (strcmp(argv[1],"cin_off") == 0){
-		cin_off(&cp[0]);
+	
+	else if (strcmp(argv[1],"cin_off") == 0){
+		int _status;
+		_status=cin_off(&cp[0]);
+		printf("%u",_status);
 	}
 
 	else if (strcmp(argv[1],"cin_fp_on") == 0){
@@ -48,15 +56,21 @@ int main(int argc, char *argv[]){
 	}
 
 	else if (strcmp(argv[1],"cin_load_firmware") == 0){
-		cin_load_firmware(&cp[1],cin_fpga_config);	
+		cin_load_firmware(&cp[0],&cp[1],cin_fpga_config);	
 	}
 
-	else if (strcmp(argv[1],"int cin_set_fclk_125mhz") == 0){
-		cin_set_fclk_125mhz(&cp[0]);	
+	else if (strcmp(argv[1],"cin_set_fclk") == 0){
+		uint16_t clkfreq;	
+		clkfreq= atoi(argv[2]);
+		cin_set_fclk (&cp[0],clkfreq);
 	}
 
 	else if (strcmp(argv[1],"cin_get_fclk_status") == 0){
 		cin_get_fclk_status(&cp[0]);	
+	}
+
+	else if (strcmp(argv[1],"cin_get_cfg_fpga_status") == 0){
+		cin_get_cfg_fpga_status(&cp[0]);    
 	}
 
 	else if (strcmp(argv[1],"cin_get_power_status") == 0){
@@ -64,45 +78,45 @@ int main(int argc, char *argv[]){
 	}	
 
 	else if (strcmp(argv[1],"cin_set_bias") == 0){
-		int _val; 
-		_val= atoi(argv[2]);
-		cin_set_bias(&cp[0],_val);	
+		int val; 
+		val= atoi(argv[2]);
+		cin_set_bias(&cp[0],val);	
 	}
 
 	else if (strcmp(argv[1],"cin_set_clocks") == 0){
-		int _val; 
-		_val= atoi(argv[2]);
-		cin_set_clocks(&cp[0],_val);	
+		int val; 
+		val= atoi(argv[2]);
+		cin_set_clocks(&cp[0],val);	
 	}
 
 	else if (strcmp(argv[1],"cin_set_trigger") == 0){
-		int _val; 
-		_val = atoi(argv[2]);
-		cin_set_trigger(&cp[0],_val);	
+		int val; 
+		val = atoi(argv[2]);
+		cin_set_trigger(&cp[0],val);	
 	}
 
-	else if (strcmp(argv[1],"cin_get_trigger") == 0){
-		int _val; 
-		_val = cin_get_trigger_status (&cp[0]);
- 		printf("getTriggerStatus returns:%u\n",_val);
+	else if (strcmp(argv[1],"cin_get_trigger_status") == 0){
+		int val; 
+		val = cin_get_trigger_status (&cp[0]);
+ 		printf("getTriggerStatus returns:%u\n",val);
 	}
 
 	else if (strcmp(argv[1],"cin_set_exposure_time") == 0){
-		float _val;
-		sscanf(argv[2], "%f", &_val);
-		cin_set_exposure_time(&cp[0],_val);
+		float val;
+		sscanf(argv[2], "%f", &val);
+		cin_set_exposure_time(&cp[0],val);
 	}
 
 	else if (strcmp(argv[1],"cin_set_trigger_delay") == 0){
-		float _val;
-		sscanf(argv[2], "%f", &_val); 
-		cin_set_trigger_delay(&cp[0],_val);
+		float val;
+		sscanf(argv[2], "%f", &val); 
+		cin_set_trigger_delay(&cp[0],val);
 	}
 
 	else if (strcmp(argv[1],"cin_set_cycle_time") == 0){
-		float _val;
-		sscanf(argv[2], "%f", &_val); 
-		cin_set_cycle_time(&cp[0],_val);
+		float val;
+		sscanf(argv[2], "%f", &val); 
+		cin_set_cycle_time(&cp[0],val);
 	}
 	else if (strcmp(argv[1],"cin_set_frame_count_reset") == 0){
 		cin_set_frame_count_reset(&cp[0]);	
@@ -115,23 +129,23 @@ int main(int argc, char *argv[]){
 	else if (strcmp(argv[1],"-h") == 0){
 		goto options;
 	}
-
+	
 	else{
-		printf("Invalid function!!\n\n");
+		printf("Invalid function!\n\n");
 		goto options;
 	}	
 	sleep(1);
 	return 0;	
-	
+		
 	options:{
-		printf("Options:\
+		printf("Format:$./cintest (Option)\nOptions:\
 		\n cin_on\
 		\n cin_off\
 		\n cin_fp_on\
 		\n cin_fp_off\
 		\n cin_load_config\
 		\n cin_load_firmware\
-		\n cin_set_fclk_125mhz\
+		\n cin_set_fclk (uint16_t clkfreq) ;clkfreq={125, 180, 200 and 250}(MHz)\
 		\n cin_get_fclk_status\
 		\n cin_get_cfg_fpga_status\
 		\n cin_get_power_status\
@@ -140,9 +154,9 @@ int main(int argc, char *argv[]){
 		\n cin_set_trigger (int val) ;val={0-Int,1-Ext1,2-Ext2,3-Ext 1 or 2}\
 		\n cin_get_trigger_status\
 		\n cin_set_exposure_time (float e_time)   ;(ms)\
-		\n cin_set_trigger_delayf (float d_time)  ;(us)\
+		\n cin_set_trigger_delay (float d_time)  	;(us)\
 		\n cin_set_cycle_time (float c_time)      ;(ms)\
 		\n cin_set_frame_count_reset\
-		\n cin_test_cfg_leds\n");
-	}	
+		\n cin_test_cfg_leds\n\n");
+	}			
 }

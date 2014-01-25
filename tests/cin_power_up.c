@@ -33,23 +33,20 @@ int main (){
 	cin_on(&cp[0]);          										//Power ON CIN
 	sleep(4);
 	
-	cin_load_firmware(&cp[1],cin_fpga_config);	//Load CIN Firmware Configuration
+	cin_load_firmware(&cp[0],&cp[1],cin_fpga_config);	//Load CIN Firmware Configuration
 	sleep(3);
 	
 	cin_get_cfg_fpga_status(&cp[0]);						//Get CIN FPGA status 
 	sleep(1);
 	
-	cin_set_fclk_125mhz(&cp[0]); 								//Set CIN clocks to 125MHz
-	sleep(1);
+//	cin_set_fclk(&cp[0],200); 								//Set CIN clocks to 200MHz
+//	sleep(1);																	//Included in latest binary
 	
 	cin_get_fclk_status(&cp[0]);								//Get CIN clock status 
 	sleep(1);
 	
 	cin_fp_on(&cp[0]);      										//Power ON CIN front Panel
-	sleep(2);	
-	
-	cin_get_power_status(&cp[0]);	              //Get CIN power status
-	sleep(2);	
+	sleep(2);																		//Wait to allow visual check
 																																		 
 /************************* FCCD Configuration **************************/	
 	cin_load_config(&cp[0],cin_waveform_config);	//Load FCCD clock configuration
@@ -60,11 +57,12 @@ int main (){
 	
 	cin_load_config(&cp[0],cin_bias_config);			//Load FCCD bias Configuration
 	sleep(3);
-/**********************************************************************/
-	fprintf(stdout,"CIN startup complete!!\n");			
+/**********************************************************************/			
 	return 0;
 }
 
 	
+
+
 
 
