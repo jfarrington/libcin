@@ -17,7 +17,7 @@ static int cin_set_sock_timeout(struct cin_port* cp) {
                     (void*)&cp->tv, sizeof(struct timeval)) < 0) 
     {
         perror("setsockopt(timeout");
-        return 1;
+        return -1;
     }
     return 0;
 }
@@ -27,7 +27,7 @@ int cin_init_ctl_port(struct cin_port* cp, char* ipaddr,
 {
 	if(cp->sockfd) {
 		perror("CIN control port was already initialized!!");
-		return 1;
+		return -1;
 	}
 
 	if(ipaddr == 0) { cp->srvaddr = CIN_CTL_IP; }
@@ -39,14 +39,14 @@ int cin_init_ctl_port(struct cin_port* cp, char* ipaddr,
 	cp->sockfd = socket(AF_INET, SOCK_DGRAM, 0);
   if(cp->sockfd < 0) {
   	perror("CIN control port - socket() failed !!!");
-    return 1;
+    return -1;
 	}
 
 	int i = 1;
  	if(setsockopt(cp->sockfd, SOL_SOCKET, SO_REUSEADDR, \
                     (void *)&i, sizeof i) < 0) {
 		perror("CIN control port - setsockopt() failed !!!");
-		return 1;
+		return -1;
  	}
     
  	/* default timeout of 0.1s */
@@ -61,7 +61,7 @@ int cin_init_ctl_port(struct cin_port* cp, char* ipaddr,
  	cp->slen = sizeof(struct sockaddr_in);
  	if(inet_aton(cp->srvaddr, &cp->sin_srv.sin_addr) == 0) {
   	perror("CIN control port - inet_aton() failed!!");
-   	return 1;
+   	return -1;
  	}
  	return 0;
 }
@@ -84,7 +84,7 @@ int cin_ctl_write(struct cin_port* cp, uint16_t reg, uint16_t val){
          						sizeof(cp->sin_srv));
   if(rc != sizeof(_valwr) ) {
    	perror("CIN control port - sendto( ) failure!!");
-   	return 1;
+   	return -1;
  	}
 
 	/*** TODO - Verify write verification procedure ***/
@@ -100,7 +100,7 @@ int cin_stream_write(struct cin_port* cp, char *val,int size) {
     								sizeof(cp->sin_srv));
  	if(rc != size ) {
   	perror(" CIN control port - sendto( ) failure!!");
-   	return 1;
+   	return -1;
  	}
 
  	/*** TODO - implement write verification procedure ***/
@@ -137,7 +137,7 @@ uint16_t cin_ctl_read(struct cin_port* cp, uint16_t reg) {
     else {
     	perror(" CIN control port - !!");
     }
-    return 1;
+    return -1;
  	}
 
   /* reset socket timeout to 0.1s default */
@@ -150,7 +150,7 @@ uint16_t cin_ctl_read(struct cin_port* cp, uint16_t reg) {
     
   error:{	
   	perror("Read error\n");
-  	return 1;
+  	return -1;
 	}	
 }
 
@@ -246,10 +246,10 @@ int cin_load_config(struct cin_port* cp,char *filename){
 		while(fgets(_line,sizeof _line,file)!= NULL){ /* read a line from a file */     
 			_line[strlen(_line)-1]='\0';   
 //      fprintf(stdout,"line%u:  %c%c%c%c\n",i,_line[0],_line[1],_line[2],_line[3]);//DEBUG 
-			fprintf(stdout,"line%u:",i);//DEBUG
-      i++;  //DEBUG
+			fprintf(stdout,"line%u:",i);							//DEBUG
+      i++;  																		//DEBUG
       if ('#' == _line[0]||'\0' == _line[0]){   
-        fprintf(stdout," Ignore line\n");//DEBUG 
+        fprintf(stdout," Ignore line\n");				//DEBUG 
       }
       else {
     		sscanf (_line,"%s %s",_regstr,_valstr);
@@ -273,82 +273,48 @@ int cin_load_config(struct cin_port* cp,char *filename){
   
   error:{
 		perror("Write error\n");
-		return 1;
+		return -1;
 	}	
 }
 /*TODO:-Check that file is loaded properly*/
 int cin_load_firmware(struct cin_port* cp,struct cin_port* dcp,char *filename){
 	
-	uint32_t num_e, fileLen, pack_t_num;
+	uint32_t num_e;
   int _status;
-	int pack_num=1;//DEBUG
-//  unsigned char *buffer;   
+	int fileLen,pack_num=1,data_sent=0;		//DEBUG  
 	char buffer[128];     
 	
 	FILE *file= fopen(filename, "rb");
+
 	if (file != NULL) {	
-	/*Get file length*/
-		fseek(file, 0, SEEK_END);
-		fileLen=ftell(file);
-		fseek(file, 0, SEEK_SET);
-	/*Allocate memory*/
-///   buffer=(char *)malloc(128+1);
-/* 	
-	 if (!buffer){
-   		perror("Memory error!");
-   		fclose(file);
-   	} 	
-*/		
-		pack_t_num=fileLen/sizeof(buffer);
-/*
-    if (fileLen%sizeof(buffer)!=0){
-    	pack_t_num=pack_t_num-1;
-    }
-*/    	
-	/*Read file and send in packets*/      		
+		/*Get file length*/
+		fseek(file, 0, SEEK_END);	//DEBUG 
+		fileLen=ftell(file);			//DEBUG 
+		fseek(file, 0, SEEK_SET);	//DEBUG 	
+		
+		/*Read file and send in packets*/      		
 		_status=cin_ctl_write(cp,REG_COMMAND,CMD_PROGRAM_FRAME);	
 		if (_status != 0){goto error;}	
 
-		num_e=fread(buffer,sizeof(buffer), 1, file);
-///	   while (num_e!= 0  ){     			
-		while (pack_num<=pack_t_num ){  
-		
-		  memset(buffer,'\0',sizeof(buffer));
-			_status=cin_stream_write(dcp, buffer,sizeof(buffer));
+		num_e=fread(buffer,1, sizeof(buffer), file);
+   			
+		while (num_e != 0 ){  	
+			_status=cin_stream_write(dcp, buffer,num_e);
 			if (_status != 0){goto error;}
-	
+			fprintf(stdout,"Pack %u of size %uB sent\n",pack_num,num_e);
+			data_sent=data_sent+num_e;	//DEBUG	
+			pack_num++;									//DEBUG
 			usleep(100);   /*for flow control*/  
-			num_e=fread(buffer,sizeof(buffer), 1, file);		
-			fprintf(stdout,"Pack %u of %lu sent; Read:%lu \n",pack_num,pack_t_num,num_e);//DEBUG
-		
-			pack_num++;//DEBUG
-		} 
-/*
-	 	fseek(file, 0, SEEK_CUR)
-		if (fileLen%sizeof(buffer)!=0){
-			int q=1;
-			int tot; 
-			tot=fileLen%sizeof(buffer);
-			char buffer1;
-
-      while (q <= tot){
-				usleep(100);   //for flow control  		
-			  printf( "%u ",q);//DEBUG
- 				fread(buffer1,1, 1, file);
-				q++;			
-
-			}
-		}
-*/		 		
-		pack_num--;																	  													    //DEBUG
-		fprintf(stdout,"%uB out of %lu sent! \n",pack_num*sizeof(buffer),fileLen);  //DEBUG
-		fprintf(stdout,"%u packs of size %uB sent!\n",pack_num,sizeof(buffer));     //DEBUG
-		memset(buffer,'\0',sizeof(buffer));
-		printf("Remaining bytes:%luB\n",fileLen%sizeof(buffer));
+			num_e=fread(buffer,1, sizeof(buffer), file);						
+		} 		
+		pack_num--;																	  													
+		fprintf(stdout,"\n%u B out of %lu B sent! \n",data_sent,fileLen); //DEBUG
+		fprintf(stdout," %u B left to send\n",fileLen-data_sent); 				//DEBUG
 	}
 
 	else {
-		perror(filename); 
+		perror(filename);
+		goto error; 
 	}
 	
 	_status=cin_ctl_write(cp,REG_FRM_RESET,0x0001);
@@ -356,13 +322,11 @@ int cin_load_firmware(struct cin_port* cp,struct cin_port* dcp,char *filename){
 	_status=cin_ctl_write(cp,REG_FRM_RESET,0x0000);
 	if (_status != 0){goto error;} 
 
-	fprintf(stdout,"\nFPGA Configuration sent!\n");
-//	free(buffer);  
+	fprintf(stdout,"\nFPGA Configuration sent!\n"); 
 	fclose(file);
 	return 0;
 	
-	error:{
-		perror("Write error\n");
+	error:{		
 		return _status;
 	}
 }
@@ -381,7 +345,6 @@ static int dco_freeze (struct cin_port* cp){
 	if (_status != 0){goto error;}
 	
 	fprintf(stdout,"  Freeze Si570 DCO\n");
-
 	return _status;
 
 	error:{
@@ -410,8 +373,7 @@ static int dco_unfreeze (struct cin_port* cp){
 	_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
 	if (_status != 0){goto error;}
 
-	fprintf(stdout,"  UnFreeze Si570 DCO & Start Oscillator\n");
-	
+	fprintf(stdout,"  UnFreeze Si570 DCO & Start Oscillator\n");	
 	return _status;
 
 	error:{
@@ -565,128 +527,33 @@ int cin_set_fclk(struct cin_port* cp,uint16_t clkfreq){
 	}
 }
 
-/*TODO:-Check Boolean comparisons*/
+/*TODO:-Verify*/
 int cin_get_fclk_status(struct cin_port* cp){ 
 
-	int _status;
-	uint32_t _reg,_reg7,_reg8,_reg9,_reg10,_reg11,_reg12,_val7,_val8;
-	uint32_t _n1,interger,decimal;
-	uint32_t _regfclksel,_valfclksel;
+	uint16_t _val1,_val2;
 
-	fprintf(stdout,"\n**** CIN FCLK Configuration ****\n");
-	_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB089);
-	if (_status != 0){goto error;}		
-	_reg= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);//Is this an 8 element hex string??
-	fprintf(stdout,"  FCLK OSC MUX SELECT : %04X \n",_reg);//Assumes 8 element hexstring
-
-	//The statements below assume an 8 element string and use hex elements 4 to 8 of string
-	if(_reg & 0x000F0000){ //if(regval[4:5] == "F") 
-		//# Freeze DCO
-		_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB189);
-		if (_status != 0){goto error;}
-		_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-		if (_status != 0){goto error;}
-		_reg= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
-		if(_reg != 0x80000000){//if (reg_val[6:] != "08") 
-			fprintf(stdout,"  Status Reg : %#08X",_reg);
-		}
-		_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB107);
-		if (_status != 0){goto error;}
-		_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-		if (_status != 0){goto error;}
-		_reg7= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
+	_val1= cin_ctl_read(cp,0xB007);
+	_val2= cin_ctl_read(cp,0xB00C);
 	
-		_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB108);
-		if (_status != 0){goto error;}
-		_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-		if (_status != 0){goto error;}
-		_reg8= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
-
-		_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB109);
-		if (_status != 0){goto error;}
-		_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-		_reg9= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
-		if (_status != 0){goto error;}
-
-		_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB10A);
-		if (_status != 0){goto error;}
-		_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-		if (_status != 0){goto error;}
-		_reg10= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
-
-		_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB10B);
-		if (_status != 0){goto error;}
-		_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-		if (_status != 0){goto error;}
-		_reg11= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
-
-		_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB10C);
-		if (_status != 0){goto error;}
-		_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
-		if (_status != 0){goto error;}
-		_reg12= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
-	
-		_val7 =(_reg7 &	0x000000FF);//bin_reg7 = bin(int(reg_val7[6:],16))[2:].zfill(8)
-		_val8 =(_reg8 &	0x000000FF);//bin_reg8 = bin(int(reg_val8[6:],16))[2:].zfill(8)
-	
-		if((_val7 & 0x00000000)==0x00000000){//if (bin_reg7[0:3] == "000")
-			fprintf(stdout,"  FCLK HS Divider = 4\n");
-		}
-	 
-		if((_val7 & 0x00000000)==0x40000000){//if (bin_reg7[0:3] == "001")
-			fprintf(stdout,"  FCLK HS Divider = 5\n");
-		}
-	
-		if((_val7 & 0x00000000)==0x40000000){//if (bin_reg7[0:3] == "010")
-			fprintf(stdout,"  FCLK HS Divider = 6\n");
-		} 
-
-		_n1=(uint32_t)(_val7 & 0x0000001F)+(uint32_t)(_val8 & 0x000000C0);	//bin_n1 		= bin_reg7[3:8] + bin_reg8[0:2]//dec_n1 = int(bin_n1,2)
-
-		if (_n1%2 != 0){//if (dec_n1%2 != 0) 
-			_n1 = _n1 + 1;//dec_n1 = dec_n1 + 1
-		}
-		fprintf(stdout,"  FCLK N1 Divider = %u",_n1);
-	
-		interger=(uint32_t)(_reg8 & 0x00000080) + (uint32_t)(_reg9 & 0x00000040);
-		decimal=(uint32_t)(_reg9 & 0x00000080) + (uint32_t)(_reg10 & 0x000000C0)+ (uint32_t)(_reg11 & 0x000000C0)+ (uint32_t)(_reg12 & 0x000000C0);
-		fprintf(stdout,"  FCLK RFREQ = %u.%u",interger,decimal);////print "  FCLK RFREQ = " + reg_val8[7:] + reg_val9[6:7] + "." + reg_val9[7:] + reg_val10[6:] + reg_val11[6:] + reg_val12[6:]
-	
-		if(((_reg7 & 0x00000000) == 0x00000000) && _n1==8){//if(bin_reg7[0:3] == "000" and dec_n1 ==  8)
-			fprintf(stdout,"  FCLK Frequency = 156 MHz\n");
-		}
-		else if(((_reg7 & 0x20000000) == 0x20000000) && _n1==10){//elif (bin_reg7[0:3] == "000" and dec_n1 == 10)  
-			fprintf(stdout, "  FCLK Frequency = 125 MHz\n");
-		}
-		else if(((_reg7 & 0x40000000) == 0x40000000) && _n1==4){//elif (bin_reg7[0:3] == "001" and dec_n1 ==  4) 
-			fprintf(stdout, "  FCLK Frequency = 250 MHz\n");
-		}
-		else{ 
-			fprintf(stdout,"  FCLK Frequency UNKNOWN\n");
-		}
-	}
-		
-	else if(((_reg & 0x00000010) & 0xD0) == 0x20){//elif (str(int(regval[4:5])&1110) == "2") 
-		fprintf(stdout,"  FCLK Frequency = 250 MHz\n"); 
-	}
-	else if(((_reg & 0x00000010) & 0xD0) == 0x60){//elif (str(int(regval[4:5])&1110) == "6") 
-		fprintf(stdout,"  FCLK Frequency = 200 MHz\n"); 
-	}
-	else if(((_reg & 0x00000010) & 0xD0) == 0xA0){//elif (str(int(regval[4:5])&1110) == "A") 
+	if(((_val1 & 0xF002)==0xF002) && ((_val2 & 0xF08F)==0xF08F)){
 		fprintf(stdout,"  FCLK Frequency = 125 MHz\n"); 
 	}
-	_regfclksel= cin_ctl_read(cp,REG_CCDFCLKSELECT_REG);
-	_valfclksel=(uint32_t)(_regfclksel & 0xFFFF);
-	fprintf(stdout,"\n  CCD TIMING CONSTANT : %4X\n", _valfclksel);
-
-  return 0;
-  
-  error:{
-		perror("Write error\n");
-		return _status;
+	else if(((_val1 & 0xF060)==0xF060) && ((_val2 & 0xF0EF)==0xF0EF)){
+		fprintf(stdout,"  FCLK Frequency = 180 MHz\n"); 
+	}
+	else if(((_val1 & 0xF060)==0xF060) && ((_val2 & 0xF0ED)==0xF0ED)){
+		fprintf(stdout,"  FCLK Frequency = 200 MHz\n"); 
 	}	
+	else if(((_val1 & 0xF060)==0xF060) && ((_val2 & 0xF08F)==0xF08F)){
+		fprintf(stdout,"  FCLK Frequency = 250 MHz\n"); 
+	}
+	else{
+		fprintf(stdout,"  FCLK Frequency = 125 MHz\n"); 
+		return -1;
+	}
+	return 0;		
 }
-
+		
 int cin_get_cfg_fpga_status(struct cin_port* cp){
 		
 	uint16_t _val;
@@ -891,22 +758,22 @@ int cin_set_trigger(struct cin_port* cp,int val){
 	int _status;
 	
 	if (val==0){
-		_status=cin_ctl_write(cp,REG_TRIGGERMASK_REG, 0x0000);//Internal trigger
+		_status=cin_ctl_write(cp,REG_TRIGGERMASK_REG, 0x0000);
 		if (_status != 0){goto error;}
 		fprintf(stdout,"Trigger set to Internal\n");
 	}
 	else if (val==1){
-		_status=cin_ctl_write(cp,REG_TRIGGERMASK_REG, 0x0001);//External trigger chan 1
+		_status=cin_ctl_write(cp,REG_TRIGGERMASK_REG, 0x0001);
 		if (_status != 0){goto error;}
 		fprintf(stdout,"Trigger set to External 1\n");
 	}
 	else if (val==2){
-		_status=cin_ctl_write(cp,REG_TRIGGERMASK_REG, 0x0002);//External trigger chan 2
+		_status=cin_ctl_write(cp,REG_TRIGGERMASK_REG, 0x0002);
 		if (_status != 0){goto error;}
 		fprintf(stdout,"Trigger set to External 2\n");
 	}
 	else if (val==3){
-		_status=cin_ctl_write(cp,REG_TRIGGERMASK_REG, 0x0003);//External trigger chan 1 or 2
+		_status=cin_ctl_write(cp,REG_TRIGGERMASK_REG, 0x0003);
 		if (_status != 0){goto error;}
 		fprintf(stdout,"Trigger set to External (1 or 2)\n");
 	}
@@ -955,17 +822,17 @@ int cin_get_trigger_status (struct cin_port* cp){
 	return 0;
 }
 /*TODO:-Malformed packet when MSB=0x0000*/
-int cin_set_exposure_time(struct cin_port* cp,float ftime){  //Set the Camera exposure time
+int cin_set_exposure_time(struct cin_port* cp,float ftime){  
 
  	int _status;
   uint32_t _time, _msbval,_lsbval;
   float _fraction;
 
-	fprintf(stdout,"Exposure Time :%f ms\n", ftime);	//DEBUG
+	fprintf(stdout,"Exposure Time :%f ms\n", ftime);		//DEBUG
 	ftime=ftime*100;
 	_time=(uint32_t)ftime;									//extract integer from decimal
 	_fraction=ftime-_time;						      //extract fraction from decimal
-	//fprintf(stdout,"Fraction	   :%f\n",_fraction);  //DEBUG
+	//fprintf(stdout,"Fraction	   :%f\n",_fraction);  	//DEBUG
   if(_fraction!=0){									//Check that there is no fractional value
   	perror("ERROR:Smallest precision that can be specified is .01 ms\n");
   	_status= 1;
@@ -990,7 +857,7 @@ int cin_set_exposure_time(struct cin_port* cp,float ftime){  //Set the Camera ex
 	}			
 }
 /*TODO:-Malformed packet when MSB=0x0000*/
-int cin_set_trigger_delay(struct cin_port* cp,float ftime){  //Set the trigger delay
+int cin_set_trigger_delay(struct cin_port* cp,float ftime){  
 	
 	int _status;
 	uint32_t _time, _msbval,_lsbval;
@@ -999,7 +866,7 @@ int cin_set_trigger_delay(struct cin_port* cp,float ftime){  //Set the trigger d
 	fprintf(stdout,"Trigger Delay Time:%f us\n", ftime);	  //DEBUG
 	_time=(uint32_t)ftime;									//extract integer from decimal
 	_fraction=ftime-_time;						      //extract fraction from decimal
-	//fprintf(stdout,"Fraction	   :%f\n",_fraction);  //DEBUG
+	//fprintf(stdout,"Fraction	   :%f\n",_fraction);  			//DEBUG
   if(_fraction!=0){									//Check that there is no fractional value
   	perror("ERROR:Smallest precision that can be specified is 1 us\n");
   	_status= 1;
@@ -1034,7 +901,7 @@ int cin_set_cycle_time(struct cin_port* cp,float ftime){
 	fprintf(stdout,"Cycle Time				:%f ms\n", ftime);	  //DEBUG
 	_time=(uint32_t)ftime;									//extract integer from decimal
 	_fraction=ftime-_time;						      //extract fraction from decimal
-	//fprintf(stdout,"Fraction	   :%f\n",_fraction);  //DEBUG
+	//fprintf(stdout,"Fraction	   :%f\n",_fraction);  			//DEBUG
   if(_fraction!=0){									//Check that there is no fractional value
   	perror("ERROR:Smallest precision that can be specified is 1 ms\n");
   	_status= 1;
@@ -1219,7 +1086,8 @@ static void flashFrmLeds(CinCtlPort* cp) {
 }
 */
 
-/*int cin_set_fclk_125mhz(struct cin_port* cp){
+/* -No longer used-
+int cin_set_fclk_125mhz(struct cin_port* cp){
 	
 	int _status;
 	
@@ -1304,9 +1172,128 @@ static void flashFrmLeds(CinCtlPort* cp) {
 	
 	error:{
 		perror("Write error\n");
-		return 1;
+		return -1;
 	}	
 }
 */
+/*
+int cin_get_fclk_status(struct cin_port* cp){ 
 
+	int _status;
+	uint32_t _reg,_reg7,_reg8,_reg9,_reg10,_reg11,_reg12,_val7,_val8;
+	uint32_t _n1,interger,decimal;
+	uint32_t _regfclksel,_valfclksel;
 
+	fprintf(stdout,"\n**** CIN FCLK Configuration ****\n");
+	_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB089);
+	if (_status != 0){goto error;}		
+	_reg= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);//Is this an 8 element hex string??
+	fprintf(stdout,"  FCLK OSC MUX SELECT : %04X \n",_reg);//Assumes 8 element hexstring
+	//The statements below assume an 8 element string and use hex elements 4 to 8 of string
+	if(_reg & 0x000F0000){ //if(regval[4:5] == "F") 
+		//# Freeze DCO
+		_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB189);
+		if (_status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+		if (_status != 0){goto error;}
+		_reg= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
+		if(_reg != 0x80000000){//if (reg_val[6:] != "08") 
+			fprintf(stdout,"  Status Reg : %#08X",_reg);
+		}
+		_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB107);
+		if (_status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+		if (_status != 0){goto error;}
+		_reg7= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
+	
+		_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB108);
+		if (_status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+		if (_status != 0){goto error;}
+		_reg8= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
+
+		_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB109);
+		if (_status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+		_reg9= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
+		if (_status != 0){goto error;}
+
+		_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB10A);
+		if (_status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+		if (_status != 0){goto error;}
+		_reg10= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
+
+		_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB10B);
+		if (_status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+		if (_status != 0){goto error;}
+		_reg11= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
+
+		_status=cin_ctl_write(cp,REG_FCLK_I2C_ADDRESS, 0xB10C);
+		if (_status != 0){goto error;}
+		_status=cin_ctl_write(cp,REG_FRM_COMMAND, CMD_FCLK_COMMIT);
+		if (_status != 0){goto error;}
+		_reg12= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
+	
+		_val7 =(_reg7 &	0x000000FF);//bin_reg7 = bin(int(reg_val7[6:],16))[2:].zfill(8)
+		_val8 =(_reg8 &	0x000000FF);//bin_reg8 = bin(int(reg_val8[6:],16))[2:].zfill(8)
+	
+		if((_val7 & 0x00000000)==0x00000000){//if (bin_reg7[0:3] == "000")
+			fprintf(stdout,"  FCLK HS Divider = 4\n");
+		}
+	 
+		if((_val7 & 0x00000000)==0x40000000){//if (bin_reg7[0:3] == "001")
+			fprintf(stdout,"  FCLK HS Divider = 5\n");
+		}
+	
+		if((_val7 & 0x00000000)==0x40000000){//if (bin_reg7[0:3] == "010")
+			fprintf(stdout,"  FCLK HS Divider = 6\n");
+		} 
+
+		_n1=(uint32_t)(_val7 & 0x0000001F)+(uint32_t)(_val8 & 0x000000C0);	//bin_n1 		= bin_reg7[3:8] + bin_reg8[0:2]//dec_n1 = int(bin_n1,2)
+
+		if (_n1%2 != 0){//if (dec_n1%2 != 0) 
+			_n1 = _n1 + 1;//dec_n1 = dec_n1 + 1
+		}
+		fprintf(stdout,"  FCLK N1 Divider = %u",_n1);
+	
+		interger=(uint32_t)(_reg8 & 0x00000080) + (uint32_t)(_reg9 & 0x00000040);
+		decimal=(uint32_t)(_reg9 & 0x00000080) + (uint32_t)(_reg10 & 0x000000C0)+ (uint32_t)(_reg11 & 0x000000C0)+ (uint32_t)(_reg12 & 0x000000C0);
+		fprintf(stdout,"  FCLK RFREQ = %u.%u",interger,decimal);////print "  FCLK RFREQ = " + reg_val8[7:] + reg_val9[6:7] + "." + reg_val9[7:] + reg_val10[6:] + reg_val11[6:] + reg_val12[6:]
+	
+		if(((_reg7 & 0x00000000) == 0x00000000) && _n1==8){//if(bin_reg7[0:3] == "000" and dec_n1 ==  8)
+			fprintf(stdout,"  FCLK Frequency = 156 MHz\n");
+		}
+		else if(((_reg7 & 0x20000000) == 0x20000000) && _n1==10){//elif (bin_reg7[0:3] == "000" and dec_n1 == 10)  
+			fprintf(stdout, "  FCLK Frequency = 125 MHz\n");
+		}
+		else if(((_reg7 & 0x40000000) == 0x40000000) && _n1==4){//elif (bin_reg7[0:3] == "001" and dec_n1 ==  4) 
+			fprintf(stdout, "  FCLK Frequency = 250 MHz\n");
+		}
+		else{ 
+			fprintf(stdout,"  FCLK Frequency UNKNOWN\n");
+		}
+	}
+		
+	else if(((_reg & 0x00000010) & 0xD0) == 0x20){//elif (str(int(regval[4:5])&1110) == "2") 
+		fprintf(stdout,"  FCLK Frequency = 250 MHz\n"); 
+	}
+	else if(((_reg & 0x00000010) & 0xD0) == 0x60){//elif (str(int(regval[4:5])&1110) == "6") 
+		fprintf(stdout,"  FCLK Frequency = 200 MHz\n"); 
+	}
+	else if(((_reg & 0x00000010) & 0xD0) == 0xA0){//elif (str(int(regval[4:5])&1110) == "A") 
+		fprintf(stdout,"  FCLK Frequency = 125 MHz\n"); 
+	}
+	_regfclksel= cin_ctl_read(cp,REG_CCDFCLKSELECT_REG);
+	_valfclksel=(uint32_t)(_regfclksel & 0xFFFF);
+	fprintf(stdout,"\n  CCD TIMING CONSTANT : %4X\n", _valfclksel);
+
+  return 0;
+  
+  error:{
+		perror("Write error\n");
+		return _status;
+	}	
+}
+*/
