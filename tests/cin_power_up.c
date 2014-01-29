@@ -3,12 +3,12 @@
 
 #include "cin.h"
 
-char fccd_config_dir[]="/home/jaimef/Desktop/FCCD Software Development/FCCD Qt/CINController_BNL_v0.1/config/Startup/";
+char fccd_config_dir[]="../cin_config/";
 
-char fpga_configfile[]="top_frame_fpga_r1004.bit";
-char cin_configfile_waveform[]="waveform_10ms_readout_timing_125MHz_frameStore.txt";
-char cin_configfile_fcric[]="ARRA_fcrics_config_x8_11112011.txt";
-char cin_configfile_bias[]="bias_setting_lbl_gold2.txt";
+char fpga_configfile[]="top_frame_fpga-v1019j.bit";
+char cin_configfile_waveform[]="2013_Nov_30-200MHz_CCD_timing.txt";
+char cin_configfile_fcric[]="2013_Nov_25-200MHz_fCRIC_timing.txt";
+char cin_configfile_bias[]="2013_Nov_05_Bias_Settings.txt";
 
 int main (){
 	
@@ -38,10 +38,10 @@ int main (){
 	
 	cin_get_cfg_fpga_status(&cp[0]);						//Get CIN FPGA status 
 	sleep(1);
-	
-//	cin_set_fclk(&cp[0],200); 								//Set CIN clocks to 200MHz
-//	sleep(1);																	//Included in latest binary
-	
+/*		
+	cin_set_fclk(&cp[0],200); 									//Set CIN clocks to 200MHz
+	sleep(1);																		//Included in latest binary
+*/	
 	cin_get_fclk_status(&cp[0]);								//Get CIN clock status 
 	sleep(1);
 	
@@ -57,6 +57,7 @@ int main (){
 	
 	cin_load_config(&cp[0],cin_bias_config);			//Load FCCD bias Configuration
 	sleep(3);
+
 /**********************************************************************/			
 	return 0;
 }

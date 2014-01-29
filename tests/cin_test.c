@@ -8,13 +8,13 @@
 int main(int argc, char *argv[]){
 
 	/*Set directory for CIN configuration files*/ 
-	char fccd_config_dir[]="/home/jaimef/Desktop/FCCD Software Development/FCCD Qt/CIN Configuration/";	
+	char fccd_config_dir[]="../cin_config/";	
 
 	/*Set CIN FPGA configuration file*/   
-	char fpga_configfile[]="top_frame_fpga.bit";
+	char fpga_configfile[]="top_frame_fpga-v1019j.bit";
 
 	/*Set CIN configuration file*/ 
-	char cin_configfile_waveform[]="waveform_10ms_readout_timing_125MHz_frameStore.txt";
+	char cin_configfile_waveform[]="2013_Nov_30-200MHz_CCD_timing.txt";
 
 	/*Create Path to files*/
 	char cin_fpga_config[1024];
