@@ -17,7 +17,6 @@ static int cin_set_sock_timeout(struct cin_port* cp) {
                     (void*)&cp->tv, sizeof(struct timeval)) < 0) 
     {
         perror("setsockopt(timeout");
-        return -1;
     }
     return 0;
 }
@@ -27,7 +26,6 @@ int cin_init_ctl_port(struct cin_port* cp, char* ipaddr,
 {
 	if(cp->sockfd) {
 		perror("CIN control port was already initialized!!");
-		return -1;
 	}
 
 	if(ipaddr == 0) { cp->srvaddr = CIN_CTL_IP; }
@@ -39,14 +37,12 @@ int cin_init_ctl_port(struct cin_port* cp, char* ipaddr,
 	cp->sockfd = socket(AF_INET, SOCK_DGRAM, 0);
   if(cp->sockfd < 0) {
   	perror("CIN control port - socket() failed !!!");
-    return -1;
 	}
 
 	int i = 1;
  	if(setsockopt(cp->sockfd, SOL_SOCKET, SO_REUSEADDR, \
                     (void *)&i, sizeof i) < 0) {
 		perror("CIN control port - setsockopt() failed !!!");
-		return -1;
  	}
     
  	/* default timeout of 0.1s */
@@ -61,7 +57,6 @@ int cin_init_ctl_port(struct cin_port* cp, char* ipaddr,
  	cp->slen = sizeof(struct sockaddr_in);
  	if(inet_aton(cp->srvaddr, &cp->sin_srv.sin_addr) == 0) {
   	perror("CIN control port - inet_aton() failed!!");
-   	return -1;
  	}
  	return 0;
 }
@@ -84,11 +79,16 @@ int cin_ctl_write(struct cin_port* cp, uint16_t reg, uint16_t val){
          						sizeof(cp->sin_srv));
   if(rc != sizeof(_valwr) ) {
    	perror("CIN control port - sendto( ) failure!!");
-   	return -1;
+   	goto error;
  	}
 
 	/*** TODO - Verify write verification procedure ***/
  	return 0;
+ 	
+	error:{	
+  	perror("Write error control port\n");
+  	return -1;
+	}
 }
 
 int cin_stream_write(struct cin_port* cp, char *val,int size) {
@@ -100,11 +100,16 @@ int cin_stream_write(struct cin_port* cp, char *val,int size) {
     								sizeof(cp->sin_srv));
  	if(rc != size ) {
   	perror(" CIN control port - sendto( ) failure!!");
-   	return -1;
+   	goto error;
  	}
 
  	/*** TODO - implement write verification procedure ***/
- 	return 0;
+ 	return 0;  
+ 	
+ 	error:{	
+  	perror("Write error to control data port\n");
+  	return -1;
+	}
 }													
 
 uint16_t cin_ctl_read(struct cin_port* cp, uint16_t reg) {
@@ -171,7 +176,6 @@ int cin_on(struct cin_port* cp){
 	return _status;
 	
 	error:{
-		perror("Write error\n");
 		return _status;
 	}	
 }
@@ -189,7 +193,6 @@ int cin_off(struct cin_port* cp) {
 	return _status;
 	
 	error:{
-		perror("Write error\n");
 		return _status;
 	}	
 }
@@ -207,7 +210,6 @@ int cin_fp_on(struct cin_port* cp){
 	return _status;
 	
 	error:{
-		perror("Write error\n");
 		return _status;
 	}	
 }
@@ -225,7 +227,6 @@ int cin_fp_off(struct cin_port* cp){
 	return _status;
 	
 	error:{
-		perror("Write error\n");
 		return _status;
 	}	
 }
@@ -259,9 +260,9 @@ int cin_load_config(struct cin_port* cp,char *filename){
    
         _status=cin_ctl_write(cp,_regul,_valul);//	WriteReg( read_addr, read_data, 0 ) 
         if (_status != 0){goto error;}    
+
         fprintf(stdout," Get line:	%04x %04x\n",_regul,_valul);//DEBUG  
       }   
-      memset(_line,'\0',sizeof(_line));
     }
     fprintf(stdout,"\nCIN Configuration sent!\n");//DEBUG 
     fclose(file);
@@ -272,7 +273,6 @@ int cin_load_config(struct cin_port* cp,char *filename){
   return 0;
   
   error:{
-		perror("Write error\n");
 		return -1;
 	}	
 }
@@ -324,7 +324,7 @@ int cin_load_firmware(struct cin_port* cp,struct cin_port* dcp,char *filename){
 
 	fprintf(stdout,"\nFPGA Configuration sent!\n"); 
 	fclose(file);
-	return 0;
+	return _status;
 	
 	error:{		
 		return _status;
@@ -521,8 +521,7 @@ int cin_set_fclk(struct cin_port* cp,uint16_t clkfreq){
 	
 	return _status;
 	
-		error:{
-		perror("Write error\n");
+	error:{
 		return  _status;
 	}
 }
@@ -722,7 +721,6 @@ int cin_set_bias(struct cin_port* cp,int val){
 	return _status;
 	
 	error:{
-		perror("Write error\n");
 		return _status;
 	}		
 }
@@ -748,7 +746,6 @@ int cin_set_clocks(struct cin_port* cp,int val){
 	return _status;
 	
 	error:{
-		perror("Write error\n");
 		return _status;
 	}	
 }
@@ -784,7 +781,6 @@ int cin_set_trigger(struct cin_port* cp,int val){
 	return _status;
 
 	error:{
-		perror("Write error\n");
 		return _status;
 	}			
 }
@@ -852,7 +848,6 @@ int cin_set_exposure_time(struct cin_port* cp,float ftime){
 	return _status;
 
 	error:{
-		perror("Write error\n");
 		return _status;
 	}			
 }
@@ -887,7 +882,6 @@ int cin_set_trigger_delay(struct cin_port* cp,float ftime){
 	return _status;
 
 	error:{
-		perror("Write error\n");
 		return _status;
 	}		
 }
@@ -921,7 +915,6 @@ int cin_set_cycle_time(struct cin_port* cp,float ftime){
 	return _status;
 
 	error:{
-		perror("Write error\n");
 		return _status;
 	}		
 }
@@ -938,7 +931,6 @@ int cin_set_frame_count_reset(struct cin_port* cp){
 	return _status;
 
 	error:{
-		perror("Write error\n");
 		return _status;
 	}	
 }
@@ -1171,7 +1163,7 @@ int cin_set_fclk_125mhz(struct cin_port* cp){
 	return 0;
 	
 	error:{
-		perror("Write error\n");
+
 		return -1;
 	}	
 }
@@ -1292,7 +1284,7 @@ int cin_get_fclk_status(struct cin_port* cp){
   return 0;
   
   error:{
-		perror("Write error\n");
+
 		return _status;
 	}	
 }
