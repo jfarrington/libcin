@@ -1,6 +1,3 @@
-core
 data_server
 cin_test
-*.bin
-*.tif
 make_descramble_map

@@ -1,6 +1,11 @@
 #ifndef CIN_REGISTER_MAP_H
 #define CIN_REGISTER_MAP_H
 
+/* not strictly necessary if file contains only macro defs */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* ============================================================================
 *		CIN Registers
 * ============================================================================
@@ -334,5 +339,9 @@
 
 /* Common Commands */
 #define CMD_READ_REG            0x0001 /* Read Register */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* CIN_REGISTER_MAP_H */

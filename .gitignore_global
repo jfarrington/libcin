@@ -1,0 +1,11 @@
+# ignore objects and archives, anywhere in the tree.
+*.[oa]
+*.so
+# ignore swap files
+*.swp
+# ignore core dumps
+core
+# ignore image files
+*.tif
+*.bin
+

@@ -1,17 +1,34 @@
 # Variables for compelation
 CC=gcc
-CFLAGS=-Wall -O3 -g -D__DESCRAMBLE__ 
-LDFLAGS=-L.
+CFLAGS=-Wall -O3 -g -D__DEBUG__ --pic
+LDFLAGS=-L. 
 LDLIBS=-lpthread -lrt
 
-SUBDIRS=control data tests utils
+# Stuff for install files
+
+INSTALL = install
+prefix = /usr/local
+includedir = $(prefix)/include
+exec_prefix = $(prefix)
+bindir = $(exec_prefix)/bin
+libdir = $(exec_prefix)/lib
+
+INSTALL_DATA = $(INSTALL) -m 644
+INSTALL_PROGRAM = ${INSTALL} -m 755
+
+# UNCOMMENT for Profiling code
+#CFLAGS+=-pg
+#LDFLAGS+=-pg
+
+SUBDIRS=bindata control data tests utils
 .PHONY :subdirs $(SUBDIRS)
 
 LIBHEADERS=control/cin_register_map.h \
            data/descramble_block.h \
            cin.h
 
-LIBSOURCES=control/cin_api.c data/cindata.c data/fifo.c
+LIBSOURCES=control/cin_api.c data/cindata.c data/fifo.c \
+           bindata/descramble_map_forward.c data/mbuffer.c 
 
 LIBOBJECTS=$(LIBSOURCES:.c=.o)
 

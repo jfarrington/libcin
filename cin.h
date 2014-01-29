@@ -7,6 +7,17 @@
 #include <arpa/inet.h>
 #include <sys/time.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* -------------------------------------------------------------------------------
+ *
+ * Global definitions
+ *
+ * -------------------------------------------------------------------------------
+ */
+
 #define CIN_CTL_IP                   "192.168.1.207"
 
 //#define CIN_CTL_IP                   "127.0.0.1" //DEBUG
@@ -22,11 +33,40 @@
 #define CIN_DATA_MAGIC_PACKET        0x0000F4F3F2F1F000
 #define CIN_DATA_MAGIC_PACKET_MASK   0x0000FFFFFFFFFF00
 #define CIN_DATA_PACKET_LEN          8184
-#define CIN_DATA_FRAME_HEIGHT        964
+#define CIN_DATA_MAX_PACKETS         542
+#define CIN_DATA_FRAME_HEIGHT        1924
 #define CIN_DATA_FRAME_WIDTH         1152
-#define CIN_DATA_FRAME_SIZE          2220744
+#define CIN_DATA_FRAME_SIZE          4432584
 #define CIN_DATA_DROPPED_PACKET_VAL  0x0
-#define CIN_DATA_RCVBUF              0x200000
+#define CIN_DATA_RCVBUF              100  // Mb 
+
+/* ---------------------------------------------------------------------
+ *
+ * MACROS for debugging
+ *
+ * ---------------------------------------------------------------------
+ */
+
+#ifdef __DEBUG__
+  #define DEBUG_PRINT(fmt, ...) \
+    if(1) { fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, __LINE__, __func__, __VA_ARGS__); }
+#else
+  #define DEBUG_PRINT(...) do {}while(0)
+#endif
+
+#ifdef __DEBUG__
+  #define DEBUG_COMMENT(fmt)\
+    if(1) { fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, __LINE__, __func__); }
+#else
+  #define DEBUG_COMMENT(...) do {}while(0)
+#endif
+
+/* ---------------------------------------------------------------------
+ *
+ * Global datastructures
+ *
+ * ---------------------------------------------------------------------
+ */
 
 struct cin_port {
     char *srvaddr;
@@ -38,17 +78,33 @@ struct cin_port {
     struct sockaddr_in sin_srv; /* server info */
     struct sockaddr_in sin_cli; /* client info (us!) */
     socklen_t slen; /* for recvfrom() */
-    unsigned int rcvbuf; /* For setting data recieve buffer */
+    int rcvbuf; /* For setting data recieve buffer */
+    int rcvbuf_rb; /* For readback */
 };
 
-struct cin_data_frame {
+typedef struct cin_data_frame {
   uint16_t *data;
   uint16_t number;
   struct timespec timestamp;
+} cin_data_frame_t;
+
+struct cin_data_stats {
+  int last_frame;
+  double framerate;
+  double packet_percent_full;
+  double frame_percent_full;
+  double image_percent_full;
+  long int dropped_packets;
+  long int mallformed_packets;
 };
 
-/* prototypes */
-/**************************** UDP Socket ******************************/
+/* -------------------------------------------------------------------------------
+ *
+ * CIN Control Routines
+ *
+ * -------------------------------------------------------------------------------
+ */
+
 int cin_init_ctl_port(struct cin_port* cp, char* ipaddr, uint16_t port);
 int cin_close_ctl_port(struct cin_port* cp);
 
@@ -108,21 +164,36 @@ int cin_set_frame_count_reset(struct cin_port* cp); 			//Sets CIN frame counter 
 /****************************** Testing *********************************/
 int cin_test_cfg_leds(struct cin_port* cp); 	        		//Flash configuration Leds in sequence
 
-
-/* cindata prototypes */
+/* ---------------------------------------------------------------------
+ *
+ * CIN Data Routines
+ *
+ * ---------------------------------------------------------------------
+ */
 
 int cin_init_data_port(struct cin_port* dp,
                        char* ipaddr, uint16_t port,
                        char* cin_ipaddr, uint16_t cin_port,
-                       unsigned int rcvbuf);
+                       int rcvbuf);
 int cin_data_read(struct cin_port* dp, unsigned char* buffer);
-int cin_data_write(struct cin_port* dp, unsigned char* buffer, int buffer_len);
+int cin_data_write(struct cin_port* dp, char* buffer, int buffer_len);
 
-int cin_data_init(void);
+int cin_data_init(int packet_buffer_len, int frame_buffer_len, int show_stats);
 void cin_data_wait_for_threads(void);
 int cin_data_stop_threads(void);
 
 struct cin_data_frame* cin_data_get_next_frame(void);
 void cin_data_release_frame(int free_mem);
 
+struct cin_data_frame* cin_data_get_buffered_frame(void);
+void cin_data_release_buffered_frame(void);
+
+struct cin_data_stats cin_data_get_stats(void);
+
+int cin_data_load_frame(uint16_t *buffer, uint16_t *frame_num);
+
+#ifdef __cplusplus
+}
 #endif
+
+#endif //__CIN_H__
