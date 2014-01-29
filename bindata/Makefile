@@ -2,17 +2,26 @@ include ../CONFIG
 
 CFLAGS+=-I..
 
-all: descramble_map_forward.o descramble_map_reverse.o
+binfiles = descramble_map_forward.bin
+cfiles   = $(binfiles:.bin=.c)
+objects  = $(cfiles:.c=.o)
+names    = $(cfiles:.c= )
 
-descramble_map_forward.o: descramble_map_forward.c
-descramble_map_reverse.o: descramble_map_reverse.c
+all: bin2c $(objects)
+	echo $(objects) $(cfiles) $(names)
 
-descramble_map_forward.c: descramble_map_forward.bin 
-	xxd -i descramble_map_forward.bin > descramble_map_forward.c
-descramble_map_reverse.c: descramble_map_reverse.bin
-	xxd -i descramble_map_reverse.bin > descramble_map_reverse.c
+bin2c : bin2c.c
+	$(CC) bin2c.c -o bin2c
+
+$(cfiles) : $(binfiles)
+	./bin2c $< name > $@
+
+$(objects) : $(cfiles)
+	$(CC) -c $< -o $@
 
 .PHONY : clean
 clean:
-	rm -f *.o *.c
-
+	rm -f *.o 
+	rm -f descramble_map_forward.c
+	rm -f descramble_map_reverse.c
+	rm -f bin2c
