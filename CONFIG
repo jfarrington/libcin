@@ -1,7 +1,7 @@
 # Variables for compelation
 CC=gcc
 CFLAGS=-Wall -O3 -g -D__DEBUG__ --pic
-LDFLAGS=-L. 
+LDFLAGS=-Wl,--no-as-needed -L. 
 LDLIBS=-lpthread -lrt
 
 # Stuff for install files
