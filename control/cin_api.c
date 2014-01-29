@@ -547,7 +547,7 @@ int cin_get_fclk_status(struct cin_port* cp){
 		fprintf(stdout,"  FCLK Frequency = 250 MHz\n"); 
 	}
 	else{
-		fprintf(stdout,"  FCLK Frequency = 125 MHz\n"); 
+		fprintf(stdout,"  ERROR: Unknown FCLK Frequency\n"); 
 		return -1;
 	}
 	return 0;		
