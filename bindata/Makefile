@@ -2,7 +2,7 @@ include ../CONFIG
 
 CFLAGS+=-I..
 
-binfiles = descramble_map_forward.bin descramble_map_reverse.bin
+binfiles = descramble_map_forward.bin 
 cfiles   = $(binfiles:.bin=.c)
 objects  = $(cfiles:.c=.o)
 
