@@ -6,7 +6,9 @@ CFLAGS+=-I../include -I../bindata
 
 all: cindata.o fifo.o mbuffer.o
 
-cindata.o: cindata.h ../bindata/descramble_map_forward.o ../include/cin.h
+cindata.o: cindata.h fifo.h mbuffer.h \
+           ../include/cin.h \
+           ../bindata/descramble_map.h
 
 fifo.o: fifo.h 
 

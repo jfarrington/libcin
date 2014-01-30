@@ -224,6 +224,7 @@ int cin_data_init(int mode,
   assemble->input_get = (void*)&fifo_get_tail;
   assemble->input_put = (void*)&fifo_advance_tail;
   assemble->input_args = (void*)thread_data.packet_fifo;
+  assemble->reader = 0;
   assemble->output_get = (void*)&fifo_get_head;
   assemble->output_put = (void*)&fifo_advance_head;
   assemble->output_args = (void*)thread_data.frame_fifo;
@@ -232,6 +233,7 @@ int cin_data_init(int mode,
   descramble->input_get = (void*)&fifo_get_tail;
   descramble->input_put = (void*)&fifo_advance_tail;
   descramble->input_args = (void*)thread_data.frame_fifo;
+  descramble->reader = 0;
   
   switch(mode){
     case CIN_DATA_MODE_BUFFER:
@@ -319,7 +321,7 @@ int cin_data_init_buffers(int packet_buffer_len, int frame_buffer_len){
 
   thread_data.packet_fifo = malloc(sizeof(fifo));
   if(fifo_init(thread_data.packet_fifo, sizeof(cin_data_packet_t), 
-     packet_buffer_len)){
+     packet_buffer_len, 1)){
     return 1;
   }
 
@@ -335,7 +337,7 @@ int cin_data_init_buffers(int packet_buffer_len, int frame_buffer_len){
   /* Frame FIFO */
 
   thread_data.frame_fifo = malloc(sizeof(fifo));
-  if(fifo_init(thread_data.frame_fifo, sizeof(struct cin_data_frame), frame_buffer_len)){
+  if(fifo_init(thread_data.frame_fifo, sizeof(struct cin_data_frame), frame_buffer_len, 1)){
     return 1;
   }
 
@@ -351,7 +353,7 @@ int cin_data_init_buffers(int packet_buffer_len, int frame_buffer_len){
   /* Image Output Fifo */
 
   thread_data.image_fifo = malloc(sizeof(fifo));
-  if(fifo_init(thread_data.image_fifo, sizeof(struct cin_data_frame), frame_buffer_len)){
+  if(fifo_init(thread_data.image_fifo, sizeof(struct cin_data_frame), frame_buffer_len, 1)){
     return 1;
   }
   q = (cin_data_frame_t*)(thread_data.image_fifo->data);
@@ -456,13 +458,13 @@ void *cin_data_assembler_thread(void *args){
 
   /* Get first frame pointer from the buffer */
 
-  frame = (cin_data_frame_t*)(*proc->input_get)(proc->input_args);
+  frame = (cin_data_frame_t*)(*proc->input_get)(proc->input_args, proc->reader);
 
   while(1){
 
     /* Get a packet from the fifo */
 
-    buffer = (cin_data_packet_t*)(*proc->input_get)(proc->input_args);
+    buffer = (cin_data_packet_t*)(*proc->input_get)(proc->input_args, proc->reader);
 
     if(buffer == NULL){
       /* We don't have a frame, continue */
@@ -475,7 +477,7 @@ void *cin_data_assembler_thread(void *args){
     buffer_len = buffer->size - CIN_DATA_UDP_HEADER;
     if(buffer_len > CIN_DATA_PACKET_LEN){
       /* Dump the frame and continue */
-      (*proc->input_put)(proc->input_args);
+      (*proc->input_put)(proc->input_args, proc->reader);
       thread_data.mallformed_packets++;
       continue;
     }
@@ -485,7 +487,7 @@ void *cin_data_assembler_thread(void *args){
 
     if(header != CIN_DATA_MAGIC_PACKET) {
       /* Dump the packet and continue */
-      (*proc->input_put)(proc->input_args);
+      (*proc->input_put)(proc->input_args, proc->reader);
       thread_data.mallformed_packets++;
     }
     
@@ -556,7 +558,7 @@ void *cin_data_assembler_thread(void *args){
 
     /* Now we are done with the packet, we can advance the fifo */
 
-    (*proc->input_put)(proc->input_args);
+    (*proc->input_put)(proc->input_args, proc->reader);
 
   } // while(1)
 
@@ -676,7 +678,7 @@ void* cin_data_descramble_thread(void *args){
   while(1){
     // Get a frame 
     
-    frame = (cin_data_frame_t*)(*proc->input_get)(proc->input_args);
+    frame = (cin_data_frame_t*)(*proc->input_get)(proc->input_args, proc->reader);
     image = (cin_data_frame_t*)(*proc->output_get)(proc->output_args);
 
     dsmap_p = dsmap;
@@ -692,7 +694,7 @@ void* cin_data_descramble_thread(void *args){
   
     // Release the frame and the image
 
-    (*proc->input_put)(proc->input_args);
+    (*proc->input_put)(proc->input_args, proc->reader);
     (*proc->output_put)(proc->output_args);
   }
 
@@ -744,13 +746,13 @@ struct cin_data_frame* cin_data_get_next_frame(void){
   /* This routine gets the next frame. This will block until a frame is avaliable */
   struct cin_data_frame *frame = NULL;
 
-  frame = (struct cin_data_frame*)fifo_get_tail(thread_data.image_fifo);
+  frame = (struct cin_data_frame*)fifo_get_tail(thread_data.image_fifo, 0);
   return frame;
 }
 
 void cin_data_release_frame(int free_mem){
   /* Advance the fifo */
-  fifo_advance_tail(thread_data.image_fifo);
+  fifo_advance_tail(thread_data.image_fifo, 0);
 }
 
 /* -------------------------------------------------------------------------------
