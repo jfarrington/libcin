@@ -53,6 +53,10 @@ void fifo_advance_tail(fifo *f);
  * element and this can be returned
  */
 int fifo_init(fifo *f, int elem_size, long int size);
+/*
+ * Initialize the fifo. The FIFO is of length size with a data
+ * structure of length elem_size. 
+ */ 
 long int fifo_used_bytes(fifo *f);
 double fifo_percent_full(fifo *f);
 long int fifo_used_elements(fifo *f);
