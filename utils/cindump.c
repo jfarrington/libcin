@@ -53,7 +53,7 @@ int main(int argc, char *argv[]){
   }
 
   /* Start the main routine */
-  if(cin_data_init(2000, 2000, 1)){
+  if(cin_data_init(CIN_DATA_MODE_PUSH_PULL, 2000, 2000, 1)){
     exit(1);
   }
 
