@@ -59,7 +59,7 @@ typedef struct cin_data_thread_data {
 } cin_data_thread_data_t;
 
 typedef struct cin_data_packet {
-  unsigned char data[CIN_DATA_MAX_MTU];
+  unsigned char *data;
   int size;
   struct timespec timestamp;
 } cin_data_packet_t;
@@ -78,7 +78,8 @@ typedef struct cin_data_proc {
 
 int cin_data_thread_start(cin_data_threads_t *thread, 
                           void *(*func) (void *),
-                          void *arg, int policy, int priority);
+                          void *arg);
+int cin_data_init_buffers(int packet_buffer_len, int frame_buffer_len);
 
 /* Threads for processing stream */
 

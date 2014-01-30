@@ -37,6 +37,17 @@ extern "C" {
 #define CIN_DATA_DROPPED_PACKET_VAL  0x0
 #define CIN_DATA_RCVBUF              100  // Mb 
 
+/* -------------------------------------------------------------------------------
+ *
+ * Definitions for CIN DATA config
+ *
+ * -------------------------------------------------------------------------------
+ */
+
+#define CIN_DATA_MODE_PUSH_PULL      0
+#define CIN_DATA_MODE_DBL_BUFFER     1
+#define CIN_DATA_MODE_BUFFER         2
+
 /* ---------------------------------------------------------------------
  *
  * MACROS for debugging
@@ -125,7 +136,7 @@ int cin_init_data_port(struct cin_port* dp,
 int cin_data_read(struct cin_port* dp, unsigned char* buffer);
 int cin_data_write(struct cin_port* dp, char* buffer, int buffer_len);
 
-int cin_data_init(int packet_buffer_len, int frame_buffer_len, int show_stats);
+int cin_data_init(int mode, int packet_buffer_len, int frame_buffer_len, int show_stats);
 void cin_data_wait_for_threads(void);
 int cin_data_stop_threads(void);
 
