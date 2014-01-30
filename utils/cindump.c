@@ -23,7 +23,7 @@ int main(int argc, char *argv[]){
   TIFF *tfp;
   int j;
   uint16_t *p;
-  FILE *fp;
+  FILE *fp = NULL;
   char filename[256];
   int tiff_output = 1;
 
@@ -53,7 +53,7 @@ int main(int argc, char *argv[]){
   }
 
   /* Start the main routine */
-  if(cin_data_init(2000, 2000, 1)){
+  if(cin_data_init(CIN_DATA_MODE_PUSH_PULL, 2000, 2000, 1)){
     exit(1);
   }
 
@@ -83,14 +83,15 @@ int main(int argc, char *argv[]){
       TIFFClose(tfp);
 
     } else {
-      sprintf(filename, "frame%08d.bin", frame_number);
-      fp = fopen(filename, "w");
-      if(fp){
-        fwrite(buffer, sizeof(uint16_t),
-               CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH, fp);
-        fclose(fp);
+      if(!fp || !(frame_number % 100)){
+        if(fp){
+          fclose(fp);
+        }
+        sprintf(filename, "frame%08d.bin", frame_number);
+        fp = fopen(filename, "w");
       }
-
+      fwrite(buffer, sizeof(uint16_t),
+             CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH, fp);
     }
 
   }

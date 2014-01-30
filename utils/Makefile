@@ -2,7 +2,7 @@ include ../CONFIG
 
 LDFLAGS+=-L../lib 
 LDLIBS+=-ltiff -lcin
-CFLAGS+=-I..
+CFLAGS+=-I../include
 
 .PHONY : clean
 

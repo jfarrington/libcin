@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <sys/types.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -16,6 +17,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <sys/resource.h>
+#include <sched.h>
 
 #include "cin.h"
 #include "fifo.h"
@@ -146,11 +148,12 @@ int cin_init_data_port(struct cin_port* dp,
 }
 
 int cin_data_read(struct cin_port* dp, unsigned char* buffer){
-  /* Read from the UDP stream */  
+  /* Read from the UDP stream */
   return recvfrom(dp->sockfd, buffer, 
-                  CIN_DATA_MAX_MTU * sizeof(unsigned char), 0,
-                  (struct sockaddr*)&dp->sin_cli, 
-                  (socklen_t*)&dp->slen);
+                 CIN_DATA_MAX_MTU * sizeof(unsigned char), 0,
+                 (struct sockaddr*)&dp->sin_cli, 
+                 (socklen_t*)&dp->slen);
+
 }
 
 int cin_data_write(struct cin_port* dp, char* buffer, int buffer_len){
@@ -165,69 +168,23 @@ int cin_data_write(struct cin_port* dp, char* buffer, int buffer_len){
  * -------------------------------------------------------------------------------
  */
 
-int cin_data_init(int packet_buffer_len, int frame_buffer_len, int show_stats){
+int cin_data_init(int mode,
+                  int packet_buffer_len, int frame_buffer_len, 
+                  int show_stats){
   /* Initialize and start all the threads to acquire data */
   /* This does not block, just start threads */
   /* Setup FIFO elements */
+  
+  /* For DEBUG print out the process id */
 
-  /* Packet FIFO */
+  DEBUG_PRINT("PID = %d\n", getpid());
 
-  thread_data.packet_fifo = malloc(sizeof(fifo));
-  if(fifo_init(thread_data.packet_fifo, sizeof(struct cin_data_packet), packet_buffer_len)){
+  /* Initialize buffers */
+  int rtn;
+  if((rtn = cin_data_init_buffers(packet_buffer_len, frame_buffer_len)) != 0){
+    DEBUG_PRINT("Failed to initialize buffers : %d\n", rtn);
     return 1;
   }
-
-  /* Frame FIFO */
-
-  thread_data.frame_fifo = malloc(sizeof(fifo));
-  if(fifo_init(thread_data.frame_fifo, sizeof(struct cin_data_frame), frame_buffer_len)){
-    return 1;
-  }
-  struct cin_data_frame *q;
-  long int i;
-  q = (struct cin_data_frame*)(thread_data.frame_fifo->data);
-  for(i=0;i<thread_data.frame_fifo->size;i++){
-    //q->data              = (uint16_t *)NULL;  
-    q->data = malloc(sizeof(uint16_t) * CIN_DATA_FRAME_WIDTH * CIN_DATA_FRAME_HEIGHT);
-    if(q->data == NULL){
-      return 1;
-    }
-    q->number            = 0;
-    q->timestamp.tv_sec  = 0;
-    q->timestamp.tv_nsec = 0;
-    q++;
-  } 
-
-  /* Image FIFO */
-
-  thread_data.image_fifo = malloc(sizeof(fifo));
-  if(fifo_init(thread_data.image_fifo, sizeof(struct cin_data_frame), frame_buffer_len)){
-    return 1;
-  }
-  q = (struct cin_data_frame*)(thread_data.image_fifo->data);
-  for(i=0;i<thread_data.image_fifo->size;i++){
-    q->data = malloc(sizeof(uint16_t) * CIN_DATA_FRAME_WIDTH * CIN_DATA_FRAME_HEIGHT);
-    if(q->data == NULL){
-      return 1;
-    }
-    q->number            = 0;
-    q->timestamp.tv_sec  = 0;
-    q->timestamp.tv_nsec = 0;
-    q++;
-  }
-
-  /* Image Double Buffer */
-
-  thread_data.image_dbuffer = malloc(sizeof(mbuffer_t));
-  if(mbuffer_init(thread_data.image_dbuffer, sizeof(struct cin_data_frame))){
-    return 1;
-  }
-
-  /* Push Pull Buffer */
-
-  thread_data.image_buffer = malloc(sizeof(image_buffer_t));
-  thread_data.image_buffer->data = malloc(sizeof(cin_data_frame_t));
-  thread_data.image_buffer->waiting = 0;
 
   /* Set some defaults */
 
@@ -244,6 +201,7 @@ int cin_data_init(int packet_buffer_len, int frame_buffer_len, int show_stats){
     return 1;
   }
 
+  int i;
   for(i=0;i<MAX_THREADS;i++){
     threads[i].started = 0;
   }
@@ -267,77 +225,150 @@ int cin_data_init(int packet_buffer_len, int frame_buffer_len, int show_stats){
   descramble->input_get = (void*)&fifo_get_tail;
   descramble->input_put = (void*)&fifo_advance_tail;
   descramble->input_args = (void*)thread_data.frame_fifo;
-  //descramble->output_get = (void*)&fifo_get_head;
-  //descramble->output_put = (void*)&fifo_advance_head;
-  //descramble->output_args = (void*)thread_data.image_fifo;
+  
+  switch(mode){
+    case CIN_DATA_MODE_BUFFER:
+      descramble->output_get = (void*)&fifo_get_head;
+      descramble->output_put = (void*)&fifo_advance_head;
+      descramble->output_args = (void*)thread_data.image_fifo;
+      break;
+    case CIN_DATA_MODE_PUSH_PULL:
+      descramble->output_get = (void*)&cin_data_buffer_push;
+      descramble->output_put = (void*)&cin_data_buffer_pop;
+      descramble->output_args = (void*)thread_data.image_buffer;
+      break;
+    case CIN_DATA_MODE_DBL_BUFFER:
+      descramble->output_get = (void*)&mbuffer_get_write_buffer;
+      descramble->output_put = (void*)&mbuffer_write_done;
+      descramble->output_args = (void*)thread_data.image_dbuffer;
+      break;
+  }
 
-  descramble->output_get = (void*)&cin_data_buffer_push;
-  descramble->output_put = (void*)&cin_data_buffer_pop;
-  descramble->output_args = (void*)thread_data.image_buffer;
+  cin_data_thread_start(&threads[0], 
+                        (void *)cin_data_listen_thread, 
+                        (void *)listen);
+  cin_data_thread_start(&threads[1], 
+                        (void *)cin_data_assembler_thread, 
+                        (void *)assemble);
+  cin_data_thread_start(&threads[2], 
+                        (void *)cin_data_descramble_thread,
+                        (void *)descramble);
+  cin_data_thread_start(&threads[3], 
+                        (void *)cin_data_monitor_thread, 
+                        NULL);
 
-  cin_data_thread_start(&threads[0], (void *)cin_data_listen_thread, (void *)listen,
-                        SCHED_RR, 1); 
-  cin_data_thread_start(&threads[1], (void *)cin_data_assembler_thread, (void *)assemble, 
-                        SCHED_RR, 1);
-  cin_data_thread_start(&threads[2], (void *)cin_data_descramble_thread, (void *)descramble,
-                        SCHED_RR, 1);
-  cin_data_thread_start(&threads[3], (void *)cin_data_monitor_thread, NULL,
-                        SCHED_RR, 10);
   if(show_stats){
-    cin_data_thread_start(&threads[4], (void *)cin_data_monitor_output_thread, NULL,
-                          SCHED_RR, 10);
+    cin_data_thread_start(&threads[4], 
+                          (void *)cin_data_monitor_output_thread,
+                          NULL);
+  }
+  
+  // Try to se affinity
+
+  int j;
+  cpu_set_t cpu_set;
+
+  CPU_ZERO(&cpu_set);
+  CPU_SET(1, &cpu_set);
+  sched_setaffinity(0, sizeof(cpu_set_t), &cpu_set);
+
+  for(j=0;j<5;j++){
+    if(threads[j].started){
+      CPU_ZERO(&cpu_set);
+      CPU_SET(j + 2, &cpu_set);
+      if(!pthread_setaffinity_np(threads[j].thread_id, sizeof(cpu_set_t), &cpu_set)){
+        DEBUG_PRINT("Set CUP affinity on thread %d to CPU %d\n", j, j);
+      } else {
+        DEBUG_COMMENT("Unable to set CPU affinity");
+      }
+    }
   }
   return 0;
 }
 
+int cin_data_init_buffers(int packet_buffer_len, int frame_buffer_len){
+  /* Initialize all the buffers */
 
-int cin_data_thread_start(cin_data_threads_t *thread, void *(*func) (void *), 
-                          void *arg, int policy, int priority){
+  long int i;
+
+  /* Packet FIFO */
+
+  thread_data.packet_fifo = malloc(sizeof(fifo));
+  if(fifo_init(thread_data.packet_fifo, sizeof(cin_data_packet_t), 
+     packet_buffer_len)){
+    return 1;
+  }
+
+  cin_data_packet_t *p = 
+    (cin_data_packet_t*)(thread_data.packet_fifo->data);
+  for(i=0;i<thread_data.packet_fifo->size;i++){
+    if(!(p->data = malloc(sizeof(char) * CIN_DATA_MAX_MTU))){
+      return 1;
+    }
+    p++;
+  }
+
+  /* Frame FIFO */
+
+  thread_data.frame_fifo = malloc(sizeof(fifo));
+  if(fifo_init(thread_data.frame_fifo, sizeof(struct cin_data_frame), frame_buffer_len)){
+    return 1;
+  }
+
+  long int size = CIN_DATA_FRAME_WIDTH * CIN_DATA_FRAME_HEIGHT;
+  cin_data_frame_t *q = (cin_data_frame_t*)(thread_data.frame_fifo->data);
+  for(i=0;i<thread_data.frame_fifo->size;i++){
+    if(!(q->data = malloc(sizeof(uint16_t) * size))){
+      return 1;
+    }
+    q++;
+  } 
+
+  /* Image Output Fifo */
+
+  thread_data.image_fifo = malloc(sizeof(fifo));
+  if(fifo_init(thread_data.image_fifo, sizeof(struct cin_data_frame), frame_buffer_len)){
+    return 1;
+  }
+  q = (cin_data_frame_t*)(thread_data.image_fifo->data);
+  for(i=0;i<thread_data.image_fifo->size;i++){
+    if(!(q->data = malloc(sizeof(uint16_t) * size))){
+      return 1;
+    }
+    q++;
+  }
+
+  /* Image Double Buffer */
+
+  thread_data.image_dbuffer = malloc(sizeof(mbuffer_t));
+  if(mbuffer_init(thread_data.image_dbuffer, sizeof(struct cin_data_frame))){
+    return 1;
+  }
+
+  /* Push Pull Buffer */
+
+  thread_data.image_buffer = malloc(sizeof(image_buffer_t));
+  thread_data.image_buffer->data = malloc(sizeof(cin_data_frame_t));
+  thread_data.image_buffer->waiting = 0;
+
+  return 0;
+}
+
+int cin_data_thread_start(cin_data_threads_t *thread, 
+                          void *(*func) (void *), 
+                          void *arg){
   int rtn;
-#ifdef _POSIX_THREAD_PRIORITY_SCHEDULING
-  struct sched_param thread_param;
-  int min, max;
-  max = sched_get_priority_max(policy);
-  DEBUG_PRINT("Max priority : %d\n", max);
-  min = sched_get_priority_min(policy);
-  DEBUG_PRINT("Min priority : %d\n", min);
-  thread_param.sched_priority = (max - min) / priority;
-
-  DEBUG_PRINT("Setting priority to %d\n", thread_param.sched_priority);
-
-  pthread_attr_t thread_attr;
-  pthread_attr_init(&thread_attr);
-  pthread_attr_setschedpolicy(&thread_attr, policy);
-  pthread_attr_setschedparam(&thread_attr, &thread_param);
-  pthread_attr_setinheritsched(&thread_attr, PTHREAD_EXPLICIT_SCHED);
- 
-  rtn = pthread_create(&thread->thread_id, &thread_attr, func, arg);
+  rtn = pthread_create(&thread->thread_id, NULL, func, arg);
   if(rtn == 0){
     DEBUG_COMMENT("Started thread\n");
     thread->started = 1;
     return 0;
-  } else {
-    DEBUG_COMMENT("Cannot set scheduling policy .. setting default.\n");
-    rtn = pthread_create(&thread->thread_id, NULL, func, arg);
-    if(rtn == 0){
-      thread->started = 1;
-      return 0;
-    } else {
-      thread->started = 0;
-      return 1;
-    }
+  }else {
+    DEBUG_COMMENT("Unable to start thread.\n");
+    thread->started = 0;
+    return 1;
   }
-
-#else
-  DEBUG_COMMENT("Priority Scheduling Not Supported\n");
-  rtn = pthread_create(&thread->thread_id, NULL, func, arg);
-  if(rtn == 0){
-    thread->started = 1;
-    return 0;
-  }
-  thread->started = 0;
   return 1;
-#endif
 }
 
 void cin_data_wait_for_threads(void){
@@ -391,8 +422,8 @@ void *cin_data_assembler_thread(void *args){
 
   uint64_t header;
 
-  struct timespec last_frame_timestamp = {0,0};
-  struct timespec this_frame_timestamp = {0,0};
+  struct timeval last_frame_timestamp = {0,0};
+  struct timeval this_frame_timestamp = {0,0};
 
   cin_data_proc_t *proc = (cin_data_proc_t*)args;
 
@@ -464,7 +495,7 @@ void *cin_data_assembler_thread(void *args){
         
       last_frame_timestamp  = this_frame_timestamp;
       this_frame_timestamp  = buffer->timestamp;
-      thread_data.framerate = timespec_diff(last_frame_timestamp,this_frame_timestamp);
+      thread_data.framerate = timeval_diff(last_frame_timestamp,this_frame_timestamp);
     } // this_frame != last_frame 
 
     if(this_packet <= last_packet){
@@ -482,7 +513,7 @@ void *cin_data_assembler_thread(void *args){
       // Copy the data and swap the endieness
       frame_p = frame->data;
       frame_p += (this_packet + this_packet_msb) * CIN_DATA_PACKET_LEN / 2;
-      for(i=0;i<buffer_len;i++){
+      for(i=0;i<buffer_len/2;i++){
         *frame_p = *buffer_p << 8;
         buffer_p++;
         *frame_p += *buffer_p;
@@ -519,7 +550,7 @@ void *cin_data_monitor_thread(void){
     if((unsigned int)thread_data.last_frame != last_frame){
       // Compute framerate
 
-      f = ((double)thread_data.framerate.tv_nsec * 1e-9);
+      f = ((double)thread_data.framerate.tv_usec * 1e-6);
       if(f == 0){
         f = 0;
       } else {
@@ -528,14 +559,13 @@ void *cin_data_monitor_thread(void){
 
       // Provide some smoothing to the data
 
-      framerate_smoothed = (alpha * f) + ((1.0 - alpha) * framerate_smoothed);
-      framerate = framerate_smoothed;
+      //framerate_smoothed = (alpha * f) + ((1.0 - alpha) * framerate_smoothed);
+      //framerate = framerate_smoothed;
+      framerate = f;
     } else {
       framerate = 0; // we are idle 
     }
 
-    /* We should probably wrap this in a mutex */
-  
     pthread_mutex_lock(&thread_data.stats_mutex);
 
     last_frame = (int)thread_data.last_frame;
@@ -596,10 +626,16 @@ void *cin_data_listen_thread(void *args){
   while(1){
     /* Get the next element in the fifo */
     buffer = (cin_data_packet_t*)(*proc->output_get)(proc->output_args);
-   
-    buffer->size = cin_data_read(thread_data.dp, buffer->data);
-    clock_gettime(CLOCK_REALTIME, &buffer->timestamp);
-
+    buffer->size = recvfrom(thread_data.dp->sockfd, buffer->data, 
+                            CIN_DATA_MAX_MTU * sizeof(unsigned char), 0,
+                            (struct sockaddr*)&thread_data.dp->sin_cli, 
+                            (socklen_t*)&thread_data.dp->slen);
+    //buffer->size = cin_data_read(thread_data.dp, buffer->data);
+    if(ioctl(thread_data.dp->sockfd, SIOCGSTAMP, &buffer->timestamp) == -1){
+      DEBUG_COMMENT("Unable to read packet time");
+      //clock_gettime(CLOCK_REALTIME, &buffer->timestamp);
+      gettimeofday(&buffer->timestamp, 0);
+    }
     (*proc->output_put)(proc->output_args);
   }
 
@@ -613,7 +649,7 @@ void* cin_data_descramble_thread(void *args){
   struct cin_data_frame *image = NULL;
   //struct cin_data_frame *buffer = NULL;
   int i;
-  uint32_t *dsmap = (uint32_t*)descramble_map_forward_bin;
+  uint32_t *dsmap = (uint32_t*)descramble_map_forward;
   uint32_t *dsmap_p;
   uint16_t *data_p;
 
@@ -624,28 +660,22 @@ void* cin_data_descramble_thread(void *args){
     
     frame = (cin_data_frame_t*)(*proc->input_get)(proc->input_args);
     image = (cin_data_frame_t*)(*proc->output_get)(proc->output_args);
-    //buffer = (struct cin_data_frame*)mbuffer_get_write_buffer(thread_data.image_dbuffer);
 
     dsmap_p = dsmap;
     data_p  = frame->data;
     for(i=0;i<(CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH);i++){
       image->data[*dsmap_p] = *data_p;
-      //buffer->data[*dsmap_p] = *data_p;
       dsmap_p++;
       data_p++;
     }
 
     image->timestamp = frame->timestamp;
     image->number = frame->number;
-    //buffer->timestamp = frame->timestamp;
-    //buffer->number = frame->number;
   
     // Release the frame and the image
 
     (*proc->input_put)(proc->input_args);
     (*proc->output_put)(proc->output_args);
-    //mbuffer_write_done(thread_data.image_dbuffer);
-
   }
 
   pthread_exit(NULL);
@@ -670,6 +700,20 @@ struct timespec timespec_diff(struct timespec start, struct timespec end){
   }
   return temp;
 }
+
+struct timeval timeval_diff(struct timeval start, struct timeval end){
+  /* Calculte the difference between two times */
+  struct timeval temp;
+  if ((end.tv_usec-start.tv_usec)<0) {
+    temp.tv_sec = end.tv_sec-start.tv_sec-1;
+    temp.tv_usec = 1000000+end.tv_usec-start.tv_usec;
+  } else {
+    temp.tv_sec = end.tv_sec-start.tv_sec;
+    temp.tv_usec = end.tv_usec-start.tv_usec;
+  }
+  return temp;
+}
+
 
 /* -------------------------------------------------------------------------------
  *
@@ -738,21 +782,17 @@ struct cin_data_stats cin_data_get_stats(void){
  */
 
 int cin_data_load_frame(uint16_t *buffer, uint16_t *frame_num){
-  //DEBUG_PRINT("Called with %p\n", buffer);
   pthread_mutex_lock(&thread_data.image_buffer->mutex);
 
   // Load the buffer pointer into the buffer
   thread_data.image_buffer->data->data = buffer;
-  //DEBUG_PRINT("Data = %p\n", thread_data.image_buffer->data->data);
   thread_data.image_buffer->waiting = 1;
   pthread_cond_signal(&thread_data.image_buffer->signal_push);
-  //DEBUG_COMMENT("Sent Signal\n");
 
   // Now wait for the data to be copied
   pthread_cond_wait(&thread_data.image_buffer->signal_pop, 
                     &thread_data.image_buffer->mutex);
 
-  //DEBUG_COMMENT("Got Signal\n");
   *frame_num = thread_data.image_buffer->data->number;
 
   // We are no longer waiting
@@ -760,8 +800,6 @@ int cin_data_load_frame(uint16_t *buffer, uint16_t *frame_num){
 
   // Now we have a valid image, we can return
   pthread_mutex_unlock(&thread_data.image_buffer->mutex);
-
-  //DEBUG_COMMENT("Returning\n");
 
   return 0;
 }
@@ -771,16 +809,13 @@ void* cin_data_buffer_push(void *arg){
   image_buffer_t *buffer = (image_buffer_t*)arg;
 
   pthread_mutex_lock(&buffer->mutex);
-  //DEBUG_COMMENT("START\n");
   if(!buffer->waiting){
     // If the waiting flag has gone up
     // we signaled but this routine was not listening
-    //DEBUG_COMMENT("Waiting\n");
     pthread_cond_wait(&buffer->signal_push,
                       &buffer->mutex);
   }
   rtn = (void *)(buffer->data);
-  //DEBUG_COMMENT("END\n");
   pthread_mutex_unlock(&buffer->mutex);
   return rtn;
 }
@@ -788,9 +823,7 @@ void* cin_data_buffer_push(void *arg){
 void cin_data_buffer_pop(void *arg){
   image_buffer_t *buffer = (image_buffer_t*)arg;
 
-  //DEBUG_COMMENT("START\n");
   pthread_mutex_lock(&buffer->mutex);
   pthread_cond_signal(&buffer->signal_pop);
   pthread_mutex_unlock(&buffer->mutex);
-  //DEBUG_COMMENT("END\n");
 }
