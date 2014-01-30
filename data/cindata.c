@@ -148,11 +148,12 @@ int cin_init_data_port(struct cin_port* dp,
 }
 
 int cin_data_read(struct cin_port* dp, unsigned char* buffer){
-  /* Read from the UDP stream */  
+  /* Read from the UDP stream */
   return recvfrom(dp->sockfd, buffer, 
-                  CIN_DATA_MAX_MTU * sizeof(unsigned char), 0,
-                  (struct sockaddr*)&dp->sin_cli, 
-                  (socklen_t*)&dp->slen);
+                 CIN_DATA_MAX_MTU * sizeof(unsigned char), 0,
+                 (struct sockaddr*)&dp->sin_cli, 
+                 (socklen_t*)&dp->slen);
+
 }
 
 int cin_data_write(struct cin_port* dp, char* buffer, int buffer_len){
@@ -421,8 +422,8 @@ void *cin_data_assembler_thread(void *args){
 
   uint64_t header;
 
-  struct timespec last_frame_timestamp = {0,0};
-  struct timespec this_frame_timestamp = {0,0};
+  struct timeval last_frame_timestamp = {0,0};
+  struct timeval this_frame_timestamp = {0,0};
 
   cin_data_proc_t *proc = (cin_data_proc_t*)args;
 
@@ -494,7 +495,7 @@ void *cin_data_assembler_thread(void *args){
         
       last_frame_timestamp  = this_frame_timestamp;
       this_frame_timestamp  = buffer->timestamp;
-      thread_data.framerate = timespec_diff(last_frame_timestamp,this_frame_timestamp);
+      thread_data.framerate = timeval_diff(last_frame_timestamp,this_frame_timestamp);
     } // this_frame != last_frame 
 
     if(this_packet <= last_packet){
@@ -549,7 +550,7 @@ void *cin_data_monitor_thread(void){
     if((unsigned int)thread_data.last_frame != last_frame){
       // Compute framerate
 
-      f = ((double)thread_data.framerate.tv_nsec * 1e-9);
+      f = ((double)thread_data.framerate.tv_usec * 1e-6);
       if(f == 0){
         f = 0;
       } else {
@@ -558,8 +559,9 @@ void *cin_data_monitor_thread(void){
 
       // Provide some smoothing to the data
 
-      framerate_smoothed = (alpha * f) + ((1.0 - alpha) * framerate_smoothed);
-      framerate = framerate_smoothed;
+      //framerate_smoothed = (alpha * f) + ((1.0 - alpha) * framerate_smoothed);
+      //framerate = framerate_smoothed;
+      framerate = f;
     } else {
       framerate = 0; // we are idle 
     }
@@ -624,10 +626,16 @@ void *cin_data_listen_thread(void *args){
   while(1){
     /* Get the next element in the fifo */
     buffer = (cin_data_packet_t*)(*proc->output_get)(proc->output_args);
-   
-    buffer->size = cin_data_read(thread_data.dp, buffer->data);
-    clock_gettime(CLOCK_REALTIME, &buffer->timestamp);
-
+    buffer->size = recvfrom(thread_data.dp->sockfd, buffer->data, 
+                            CIN_DATA_MAX_MTU * sizeof(unsigned char), 0,
+                            (struct sockaddr*)&thread_data.dp->sin_cli, 
+                            (socklen_t*)&thread_data.dp->slen);
+    //buffer->size = cin_data_read(thread_data.dp, buffer->data);
+    if(ioctl(thread_data.dp->sockfd, SIOCGSTAMP, &buffer->timestamp) == -1){
+      DEBUG_COMMENT("Unable to read packet time");
+      //clock_gettime(CLOCK_REALTIME, &buffer->timestamp);
+      gettimeofday(&buffer->timestamp, 0);
+    }
     (*proc->output_put)(proc->output_args);
   }
 
@@ -692,6 +700,20 @@ struct timespec timespec_diff(struct timespec start, struct timespec end){
   }
   return temp;
 }
+
+struct timeval timeval_diff(struct timeval start, struct timeval end){
+  /* Calculte the difference between two times */
+  struct timeval temp;
+  if ((end.tv_usec-start.tv_usec)<0) {
+    temp.tv_sec = end.tv_sec-start.tv_sec-1;
+    temp.tv_usec = 1000000+end.tv_usec-start.tv_usec;
+  } else {
+    temp.tv_sec = end.tv_sec-start.tv_sec;
+    temp.tv_usec = end.tv_usec-start.tv_usec;
+  }
+  return temp;
+}
+
 
 /* -------------------------------------------------------------------------------
  *

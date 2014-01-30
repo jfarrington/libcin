@@ -93,7 +93,7 @@ struct cin_port {
 typedef struct cin_data_frame {
   uint16_t *data;
   uint16_t number;
-  struct timespec timestamp;
+  struct timeval timestamp;
 } cin_data_frame_t;
 
 struct cin_data_stats {

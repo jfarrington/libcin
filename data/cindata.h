@@ -46,7 +46,7 @@ typedef struct cin_data_thread_data {
   struct cin_port* dp; 
 
   /* Statistics */
-  struct timespec framerate;
+  struct timeval framerate;
   unsigned long int dropped_packets;
   unsigned long int mallformed_packets;
   uint16_t last_frame;
@@ -61,7 +61,7 @@ typedef struct cin_data_thread_data {
 typedef struct cin_data_packet {
   unsigned char *data;
   int size;
-  struct timespec timestamp;
+  struct timeval timestamp;
 } cin_data_packet_t;
 
 typedef struct cin_data_proc {
@@ -96,7 +96,7 @@ void cin_data_buffer_pop(void *arg);
 
 /* Profiling Functions */
 struct timespec timespec_diff(struct timespec start, struct timespec end);
-void timespec_copy(struct timespec *dest, struct timespec *src);
+struct timeval timeval_diff(struct timeval start, struct timeval end);
 
 #ifdef __cplusplus
 }
