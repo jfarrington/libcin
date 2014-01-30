@@ -133,12 +133,28 @@ int cin_init_data_port(struct cin_port* dp,
                        char* ipaddr, uint16_t port,
                        char* cin_ipaddr, uint16_t cin_port,
                        int rcvbuf);
-int cin_data_read(struct cin_port* dp, unsigned char* buffer);
-int cin_data_write(struct cin_port* dp, char* buffer, int buffer_len);
+/*
+ * Initialize the data port used for recieveing the UDP packets. A
+ * structure of cin_port is modified with the settings. If the strings
+ * are NULL and the ports zero then defaults are used.
+ */
 
 int cin_data_init(int mode, int packet_buffer_len, int frame_buffer_len);
+/*
+ * Initialize the data handeling routines and start the threads for listening.
+ * mode should be set for the desired output. The packet_buffer_len in the
+ * length of the packet FIFO in number of packets. The frame_buffer_len is
+ * the number of data frames to buffer. 
+ */
+ 
 void cin_data_wait_for_threads(void);
+/* 
+ * Block until all th threads have closed. 
+ */
 int cin_data_stop_threads(void);
+/* 
+ * Send a cancel request to all threads.
+ */
 
 struct cin_data_frame* cin_data_get_next_frame(void);
 void cin_data_release_frame(int free_mem);

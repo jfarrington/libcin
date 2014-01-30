@@ -77,10 +77,16 @@ typedef struct cin_data_proc {
 
 /* Templates for functions */
 
+/* Thread Handeling */
+
 int cin_data_thread_start(cin_data_threads_t *thread, 
                           void *(*func) (void *),
                           void *arg);
 int cin_data_init_buffers(int packet_buffer_len, int frame_buffer_len);
+
+/* UDP Port handeling */
+int cin_data_read(struct cin_port* dp, unsigned char* buffer);
+int cin_data_write(struct cin_port* dp, char* buffer, int buffer_len);
 
 /* Threads for processing stream */
 
