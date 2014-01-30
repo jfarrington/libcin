@@ -51,11 +51,11 @@ typedef struct cin_data_thread_data {
   unsigned long int mallformed_packets;
   uint16_t last_frame;
 
+  /* Statistics */
   struct cin_data_stats stats;
   pthread_mutex_t stats_mutex;
   pthread_cond_t stats_signal;
 
-  /* Mutex for sequential frame access */
 } cin_data_thread_data_t;
 
 typedef struct cin_data_packet {
@@ -65,9 +65,10 @@ typedef struct cin_data_packet {
 } cin_data_packet_t;
 
 typedef struct cin_data_proc {
-  void* (*input_get) (void*);
-  void* (*input_put) (void*);
+  void* (*input_get) (void*, int);
+  void* (*input_put) (void*, int);
   void* input_args;
+  int reader;
 
   void* (*output_put) (void*);
   void* (*output_get) (void*);
