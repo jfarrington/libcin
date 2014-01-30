@@ -53,11 +53,13 @@ int main(int argc, char *argv[]){
   }
 
   /* Start the main routine */
-  if(cin_data_init(CIN_DATA_MODE_PUSH_PULL, 2000, 2000, 1)){
+  if(cin_data_init(CIN_DATA_MODE_PUSH_PULL, 2000, 2000)){
     exit(1);
   }
 
   signal(SIGINT, int_handler);
+
+  cin_data_start_monitor_output();
 
   while(1){
     // Load the buffer
