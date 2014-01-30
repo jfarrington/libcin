@@ -229,28 +229,37 @@ int cin_data_init(int mode,
   assemble->output_put = (void*)&fifo_advance_head;
   assemble->output_args = (void*)thread_data.frame_fifo;
 
-  cin_data_proc_t *descramble = malloc(sizeof(cin_data_proc_t));
-  descramble->input_get = (void*)&fifo_get_tail;
-  descramble->input_put = (void*)&fifo_advance_tail;
-  descramble->input_args = (void*)thread_data.frame_fifo;
-  descramble->reader = 0;
+  cin_data_proc_t *descramble1 = malloc(sizeof(cin_data_proc_t));
+  descramble1->input_get = (void*)&fifo_get_tail;
+  descramble1->input_put = (void*)&fifo_advance_tail;
+  descramble1->input_args = (void*)thread_data.frame_fifo;
+  descramble1->reader = 0;
   
-  switch(mode){
-    case CIN_DATA_MODE_BUFFER:
-      descramble->output_get = (void*)&fifo_get_head;
-      descramble->output_put = (void*)&fifo_advance_head;
-      descramble->output_args = (void*)thread_data.image_fifo;
-      break;
-    case CIN_DATA_MODE_PUSH_PULL:
-      descramble->output_get = (void*)&cin_data_buffer_push;
-      descramble->output_put = (void*)&cin_data_buffer_pop;
-      descramble->output_args = (void*)thread_data.image_buffer;
-      break;
-    case CIN_DATA_MODE_DBL_BUFFER:
-      descramble->output_get = (void*)&mbuffer_get_write_buffer;
-      descramble->output_put = (void*)&mbuffer_write_done;
-      descramble->output_args = (void*)thread_data.image_dbuffer;
-      break;
+  if(CIN_DATA_MODE_BUFFER & mode){
+    descramble1->output_get = (void*)&fifo_get_head;
+    descramble1->output_put = (void*)&fifo_advance_head;
+    descramble1->output_args = (void*)thread_data.image_fifo;
+  } else if(CIN_DATA_MODE_DBL_BUFFER & mode){
+    descramble1->output_get = (void*)&mbuffer_get_write_buffer;
+    descramble1->output_put = (void*)&mbuffer_write_done;
+    descramble1->output_args = (void*)thread_data.image_dbuffer;
+  } else {
+    descramble1->output_get = (void*)&cin_data_buffer_push;
+    descramble1->output_put = (void*)&cin_data_buffer_pop;
+    descramble1->output_args = (void*)thread_data.image_buffer;
+  }
+
+  cin_data_proc_t *descramble2 = malloc(sizeof(cin_data_proc_t));
+  cin_data_proc_t *writer = malloc(sizeof(cin_data_proc_t));
+
+  if(mode & CIN_DATA_MODE_DBL_BUFFER_COPY){
+    descramble2->input_get = (void*)&fifo_get_tail;
+    descramble2->input_put = (void*)&fifo_advance_tail;
+    descramble2->input_args = (void*)thread_data.frame_fifo;
+    descramble2->reader = 1;   
+    descramble2->output_get = (void*)&mbuffer_get_write_buffer;
+    descramble2->output_put = (void*)&mbuffer_write_done;
+    descramble2->output_args = (void*)thread_data.image_dbuffer;
   }
 
   cin_data_thread_start(&threads[0], 
@@ -261,10 +270,18 @@ int cin_data_init(int mode,
                         (void *)assemble);
   cin_data_thread_start(&threads[2], 
                         (void *)cin_data_descramble_thread,
-                        (void *)descramble);
+                        (void *)descramble1);
   cin_data_thread_start(&threads[3], 
                         (void *)cin_data_monitor_thread, 
                         NULL);
+  if((mode & CIN_DATA_MODE_WRITER) || (mode & CIN_DATA_MODE_DBL_BUFFER_COPY)){
+    cin_data_thread_start(&threads[4], 
+                          (void *)cin_data_descramble_thread,
+                          (void *)descramble2);
+    //cin_data_thread_start(&threads[5],
+    //                      (void*)cin_data_writer_thread,
+    //                      (void*)writer);
+  }
 
 #ifdef __AFFINITY__
 
@@ -299,15 +316,15 @@ int cin_data_init(int mode,
 }
 
 void cin_data_start_monitor_output(void){
-    cin_data_thread_start(&threads[4], 
+    cin_data_thread_start(&threads[6], 
                           (void *)cin_data_monitor_output_thread,
                           NULL);
   DEBUG_COMMENT("Starting monitor ourput\n");
 }
 
 void cin_data_stop_monitor_output(void){
-  if(threads[4].started){
-    pthread_cancel(threads[4].thread_id);
+  if(threads[6].started){
+    pthread_cancel(threads[6].thread_id);
     DEBUG_COMMENT("Sending cancel to monitor thread\n");
   }
 }
@@ -516,6 +533,8 @@ void *cin_data_assembler_thread(void *args){
 
       frame = (cin_data_frame_t*)(*proc->output_get)(proc->output_args);
 
+      memset(frame->data, CIN_DATA_DROPPED_PACKET_VAL, sizeof(uint16_t));
+
       /* Set all the last frame stuff */
       last_frame = this_frame;
       last_packet = -1;
@@ -667,7 +686,7 @@ void* cin_data_descramble_thread(void *args){
   /* This routine gets the next frame and descrambles is */
   struct cin_data_frame *frame = NULL;
   struct cin_data_frame *image = NULL;
-  //struct cin_data_frame *buffer = NULL;
+  struct timespec start, end;
   int i;
   uint32_t *dsmap = (uint32_t*)descramble_map_forward;
   uint32_t *dsmap_p;
@@ -681,26 +700,53 @@ void* cin_data_descramble_thread(void *args){
     frame = (cin_data_frame_t*)(*proc->input_get)(proc->input_args, proc->reader);
     image = (cin_data_frame_t*)(*proc->output_get)(proc->output_args);
 
+#ifdef __PROFILE__
+    clock_gettime(CLOCK_REALTIME, &start);
+#endif
+
     dsmap_p = dsmap;
     data_p  = frame->data;
     for(i=0;i<(CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH);i++){
-      image->data[*dsmap_p] = *data_p;
-      dsmap_p++;
-      data_p++;
+      image->data[*dsmap_p++] = *data_p++; 
     }
 
     image->timestamp = frame->timestamp;
     image->number = frame->number;
   
+#ifdef __PROFILE__
+    clock_gettime(CLOCK_REALTIME, &end);
+#endif
     // Release the frame and the image
 
     (*proc->input_put)(proc->input_args, proc->reader);
     (*proc->output_put)(proc->output_args);
-  }
+
+#ifdef __PROFILE__
+    DEBUG_PRINT("descramble time = %ld\n", timespec_diff(start, end).tv_nsec);
+#endif
+}
 
   pthread_exit(NULL);
 }
 
+void* cin_data_writer_thread(void *args){
+  /* This routine gets the next frame and descrambles is */
+  struct cin_data_frame *image = NULL;
+
+  cin_data_proc_t *proc = (cin_data_proc_t*)args;
+
+  while(1){
+    // Get a frame 
+    
+    image = (cin_data_frame_t*)(*proc->input_get)(proc->input_args, proc->reader);
+    DEBUG_PRINT("image %d\n", image->number);
+    // Release the frame and the image
+
+    (*proc->input_put)(proc->input_args, proc->reader);
+  }
+
+  pthread_exit(NULL);
+}
 /* -----------------------------------------------------------------------------------------
  *
  * Routines for benchmarking

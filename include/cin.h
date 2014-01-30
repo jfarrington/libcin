@@ -29,12 +29,13 @@ extern "C" {
 #define CIN_DATA_UDP_HEADER          8
 #define CIN_DATA_MAGIC_PACKET        0x0000F4F3F2F1F000
 #define CIN_DATA_MAGIC_PACKET_MASK   0x0000FFFFFFFFFF00
+#define CIN_DATA_DROPPED_PACKET_VAL  0x2000
+#define CIN_DATA_DATA_MASK           0x1FFF
 #define CIN_DATA_PACKET_LEN          8184
 #define CIN_DATA_MAX_PACKETS         542
 #define CIN_DATA_FRAME_HEIGHT        1924
 #define CIN_DATA_FRAME_WIDTH         1152
 #define CIN_DATA_FRAME_SIZE          4432584
-#define CIN_DATA_DROPPED_PACKET_VAL  0x0
 #define CIN_DATA_RCVBUF              100  // Mb 
 
 /* -------------------------------------------------------------------------------
@@ -44,9 +45,11 @@ extern "C" {
  * -------------------------------------------------------------------------------
  */
 
-#define CIN_DATA_MODE_PUSH_PULL      0
-#define CIN_DATA_MODE_DBL_BUFFER     1
-#define CIN_DATA_MODE_BUFFER         2
+#define CIN_DATA_MODE_PUSH_PULL         0x01
+#define CIN_DATA_MODE_DBL_BUFFER        0x02
+#define CIN_DATA_MODE_BUFFER            0x04
+#define CIN_DATA_MODE_WRITER            0x08
+#define CIN_DATA_MODE_DBL_BUFFER_COPY   0x10
 
 /* ---------------------------------------------------------------------
  *
@@ -133,12 +136,28 @@ int cin_init_data_port(struct cin_port* dp,
                        char* ipaddr, uint16_t port,
                        char* cin_ipaddr, uint16_t cin_port,
                        int rcvbuf);
-int cin_data_read(struct cin_port* dp, unsigned char* buffer);
-int cin_data_write(struct cin_port* dp, char* buffer, int buffer_len);
+/*
+ * Initialize the data port used for recieveing the UDP packets. A
+ * structure of cin_port is modified with the settings. If the strings
+ * are NULL and the ports zero then defaults are used.
+ */
 
 int cin_data_init(int mode, int packet_buffer_len, int frame_buffer_len);
+/*
+ * Initialize the data handeling routines and start the threads for listening.
+ * mode should be set for the desired output. The packet_buffer_len in the
+ * length of the packet FIFO in number of packets. The frame_buffer_len is
+ * the number of data frames to buffer. 
+ */
+ 
 void cin_data_wait_for_threads(void);
+/* 
+ * Block until all th threads have closed. 
+ */
 int cin_data_stop_threads(void);
+/* 
+ * Send a cancel request to all threads.
+ */
 
 struct cin_data_frame* cin_data_get_next_frame(void);
 void cin_data_release_frame(int free_mem);
