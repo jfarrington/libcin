@@ -13,11 +13,12 @@ extern "C" {
 #define CIN_DATA_MBUFFER_ERR_MEMORY     1
 
 typedef struct image_mbuffer {
-  void* data[CIN_DATA_MBUFFER_SIZE];
+  void* data;
   int active[CIN_DATA_MBUFFER_SIZE];
   int empty[CIN_DATA_MBUFFER_SIZE];
   int write_buffer;
   int read_buffer;
+  int size;
   pthread_mutex_t mutex;
   pthread_cond_t signal;
 } mbuffer_t;

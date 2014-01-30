@@ -143,6 +143,14 @@ int cin_init_data_port(struct cin_port* dp,
 
   DEBUG_PRINT("Recieve buffer = %d Mb\n", dp->rcvbuf_rb / (1024 * 1024));
 
+  int zero = 0;
+  if(setsockopt(dp->sockfd, SOL_SOCKET, SO_TIMESTAMP,
+                &zero, sizeof(zero)) == -1){
+    perror("Unable to set sockopt SO_TIMESTAMP");
+  } else {
+    DEBUG_COMMENT("Set SO_TIMESTAMP to zero\n");
+  }
+                
   thread_data.dp = dp;
   return 0;
 }
@@ -169,8 +177,7 @@ int cin_data_write(struct cin_port* dp, char* buffer, int buffer_len){
  */
 
 int cin_data_init(int mode,
-                  int packet_buffer_len, int frame_buffer_len, 
-                  int show_stats){
+                  int packet_buffer_len, int frame_buffer_len){
   /* Initialize and start all the threads to acquire data */
   /* This does not block, just start threads */
   /* Setup FIFO elements */
@@ -257,13 +264,13 @@ int cin_data_init(int mode,
                         (void *)cin_data_monitor_thread, 
                         NULL);
 
-  if(show_stats){
-    cin_data_thread_start(&threads[4], 
-                          (void *)cin_data_monitor_output_thread,
-                          NULL);
-  }
-  
-  // Try to se affinity
+#ifdef __AFFINITY__
+
+  /*
+   * Try to set the processor AFFINITY to lock the current
+   * thread onto the first CPU and then the other three threads
+   * onto separate cores. YMMV use carefully.
+   */
 
   int j;
   cpu_set_t cpu_set;
@@ -272,7 +279,7 @@ int cin_data_init(int mode,
   CPU_SET(1, &cpu_set);
   sched_setaffinity(0, sizeof(cpu_set_t), &cpu_set);
 
-  for(j=0;j<5;j++){
+  for(j=0;j<3;j++){
     if(threads[j].started){
       CPU_ZERO(&cpu_set);
       CPU_SET(j + 2, &cpu_set);
@@ -283,7 +290,24 @@ int cin_data_init(int mode,
       }
     }
   }
+
+#endif
+
   return 0;
+}
+
+void cin_data_start_monitor_output(void){
+    cin_data_thread_start(&threads[4], 
+                          (void *)cin_data_monitor_output_thread,
+                          NULL);
+  DEBUG_COMMENT("Starting monitor ourput\n");
+}
+
+void cin_data_stop_monitor_output(void){
+  if(threads[4].started){
+    pthread_cancel(threads[4].thread_id);
+    DEBUG_COMMENT("Sending cancel to monitor thread\n");
+  }
 }
 
 int cin_data_init_buffers(int packet_buffer_len, int frame_buffer_len){
@@ -341,9 +365,12 @@ int cin_data_init_buffers(int packet_buffer_len, int frame_buffer_len){
   /* Image Double Buffer */
 
   thread_data.image_dbuffer = malloc(sizeof(mbuffer_t));
-  if(mbuffer_init(thread_data.image_dbuffer, sizeof(struct cin_data_frame))){
+  if(mbuffer_init(thread_data.image_dbuffer, sizeof(cin_data_frame_t))){
     return 1;
   }
+  q = (cin_data_frame_t*)thread_data.image_dbuffer->data;
+  q[0].data = malloc(sizeof(uint16_t) * size);
+  q[1].data = malloc(sizeof(uint16_t) * size);
 
   /* Push Pull Buffer */
 
@@ -538,10 +565,7 @@ void *cin_data_assembler_thread(void *args){
 
 void *cin_data_monitor_thread(void){
   //fprintf(stderr, "\033[?25l");
-  double framerate = 0;
-  double framerate_smoothed =0;
-  double alpha = 0.25; // Smooth over 4 readings
-  double f;
+  double f = 0;
 
   unsigned int last_frame = 0;
 
@@ -556,21 +580,15 @@ void *cin_data_monitor_thread(void){
       } else {
         f = 1 / f;
       }
-
-      // Provide some smoothing to the data
-
-      //framerate_smoothed = (alpha * f) + ((1.0 - alpha) * framerate_smoothed);
-      //framerate = framerate_smoothed;
-      framerate = f;
     } else {
-      framerate = 0; // we are idle 
+      f = 0; // we are idle 
     }
 
     pthread_mutex_lock(&thread_data.stats_mutex);
 
     last_frame = (int)thread_data.last_frame;
     thread_data.stats.last_frame = last_frame;
-    thread_data.stats.framerate = framerate;
+    thread_data.stats.framerate = f;
     thread_data.stats.packet_percent_full = fifo_percent_full(thread_data.packet_fifo);
     thread_data.stats.frame_percent_full = fifo_percent_full(thread_data.frame_fifo);
     thread_data.stats.image_percent_full = fifo_percent_full(thread_data.image_fifo);

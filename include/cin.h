@@ -136,7 +136,7 @@ int cin_init_data_port(struct cin_port* dp,
 int cin_data_read(struct cin_port* dp, unsigned char* buffer);
 int cin_data_write(struct cin_port* dp, char* buffer, int buffer_len);
 
-int cin_data_init(int mode, int packet_buffer_len, int frame_buffer_len, int show_stats);
+int cin_data_init(int mode, int packet_buffer_len, int frame_buffer_len);
 void cin_data_wait_for_threads(void);
 int cin_data_stop_threads(void);
 
@@ -149,6 +149,9 @@ void cin_data_release_buffered_frame(void);
 struct cin_data_stats cin_data_get_stats(void);
 
 int cin_data_load_frame(uint16_t *buffer, uint16_t *frame_num);
+
+void cin_data_start_monitor_output(void);
+void cin_data_stop_monitor_output(void);
 
 #ifdef __cplusplus
 }
