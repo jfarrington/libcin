@@ -29,12 +29,13 @@ extern "C" {
 #define CIN_DATA_UDP_HEADER          8
 #define CIN_DATA_MAGIC_PACKET        0x0000F4F3F2F1F000
 #define CIN_DATA_MAGIC_PACKET_MASK   0x0000FFFFFFFFFF00
+#define CIN_DATA_DROPPED_PACKET_VAL  0x2000
+#define CIN_DATA_DATA_MASK           0x1FFF
 #define CIN_DATA_PACKET_LEN          8184
 #define CIN_DATA_MAX_PACKETS         542
 #define CIN_DATA_FRAME_HEIGHT        1924
 #define CIN_DATA_FRAME_WIDTH         1152
 #define CIN_DATA_FRAME_SIZE          4432584
-#define CIN_DATA_DROPPED_PACKET_VAL  0x0
 #define CIN_DATA_RCVBUF              100  // Mb 
 
 /* -------------------------------------------------------------------------------
@@ -44,9 +45,11 @@ extern "C" {
  * -------------------------------------------------------------------------------
  */
 
-#define CIN_DATA_MODE_PUSH_PULL      0
-#define CIN_DATA_MODE_DBL_BUFFER     1
-#define CIN_DATA_MODE_BUFFER         2
+#define CIN_DATA_MODE_PUSH_PULL         0x01
+#define CIN_DATA_MODE_DBL_BUFFER        0x02
+#define CIN_DATA_MODE_BUFFER            0x04
+#define CIN_DATA_MODE_WRITER            0x08
+#define CIN_DATA_MODE_DBL_BUFFER_COPY   0x10
 
 /* ---------------------------------------------------------------------
  *

@@ -11,7 +11,7 @@ extern "C" {
 
 /* Definitions */
 
-#define MAX_THREADS             10
+#define MAX_THREADS             20
 #define CIN_DATA_MONITOR_UPDATE 100000 // in usec
 
 /* Datastructures */
@@ -95,6 +95,7 @@ void *cin_data_monitor_thread(void);
 void *cin_data_assembler_thread(void *args);
 void *cin_data_descramble_thread(void *args);
 void *cin_data_monitor_output_thread(void);
+void *cin_data_writer_thread(void *args);
 
 /* Buffer Routines */
 
