@@ -101,7 +101,7 @@ int make_test_pattern(uint16_t *data, int height, int width){
 
 int scramble_image(unsigned char* stream, uint16_t *image, int size){
   uint32_t *scramble;
-  scramble = (uint32_t*)descramble_map_forward_bin;
+  scramble = (uint32_t*)descramble_map_forward;
 
   uint16_t *stream_p = (uint16_t*)stream;
   int i;
