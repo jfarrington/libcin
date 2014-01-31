@@ -1,23 +1,27 @@
 #define _GNU_SOURCE
-#include <sys/types.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>  // For getpid()
+
+#include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <netpacket/packet.h>
-#include <net/ethernet.h>
 #include <sys/ioctl.h>
-#include <net/if.h>
-#include <arpa/inet.h>
-#include <linux/filter.h>
-#include <pthread.h>
-#include <stdint.h>
-#include <unistd.h>
-#include <time.h>
 #include <sys/time.h>
-#include <sys/resource.h>
-#include <sched.h>
+
+#include <pthread.h>
+#include <arpa/inet.h>
+///#include <netinet/in.h>
+//#include <netpacket/packet.h>
+//#include <net/ethernet.h>
+//#include <net/if.h>
+//#include <arpa/inet.h>
+//#include <linux/filter.h>
+//#include <time.h>
+//#include <sys/time.h>
+//#include <sys/resource.h>
+//#include <sched.h>
 
 #include "cin.h"
 #include "fifo.h"
@@ -533,7 +537,8 @@ void *cin_data_assembler_thread(void *args){
 
       frame = (cin_data_frame_t*)(*proc->output_get)(proc->output_args);
 
-      memset(frame->data, CIN_DATA_DROPPED_PACKET_VAL, sizeof(uint16_t));
+      memset(frame->data, CIN_DATA_DROPPED_PACKET_VAL, 
+             sizeof(uint16_t) * CIN_DATA_FRAME_WIDTH * CIN_DATA_FRAME_HEIGHT);
 
       /* Set all the last frame stuff */
       last_frame = this_frame;

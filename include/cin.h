@@ -1,11 +1,12 @@
 #ifndef __CIN_H__
 #define __CIN_H__
 
-#include <stdint.h>
-#include <sys/types.h>
+#include <stdint.h>     // for uint16_t
+#include <stdio.h>      // for fprintf
+#include <sys/socket.h> // For struct sockaddr_in
 #include <netinet/in.h>
-#include <arpa/inet.h>
-#include <sys/time.h>
+#include <netinet/ip.h>
+#include <sys/time.h>   // For timespec
 
 #ifdef __cplusplus
 extern "C" {
