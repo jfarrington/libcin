@@ -93,7 +93,7 @@ int make_test_pattern(uint16_t *data, int height, int width){
   int i,j;
   for(i=0;i<width;i++){
     for(j=0;j<height;j++){
-      data[(j * width) + i] = (uint16_t)((1000*j)+(1000*i));
+      data[(j * width) + i] = (uint16_t)(((1000*j)+(1000*i)) & CIN_DATA_DATA_MASK);
     }
   }
   return(0);
