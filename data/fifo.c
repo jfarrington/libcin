@@ -36,6 +36,7 @@ int fifo_init(fifo *f, int elem_size, long int size, int readers){
 
   f->full = 0;
   f->readers = readers;
+  f->overruns = 0;
 
   /* Setup mutex */
 
@@ -98,9 +99,11 @@ void fifo_advance_head(fifo *f){
   for(i=0;i<f->readers;i++){
     if((f->head == f->end) && (f->tail[i] == f->data)){
       f->full = 1;
+      f->overruns++;
       goto cleanup;
     } else if((f->head + f->elem_size) == f->tail[i]){
       f->full = 1;
+      f->overruns++;
       goto cleanup;
     }
   }
@@ -114,7 +117,7 @@ void fifo_advance_head(fifo *f){
   }
 
 cleanup:
-  pthread_cond_signal(&f->signal);
+  pthread_cond_broadcast(&f->signal);
   pthread_mutex_unlock(&f->mutex);
 }
 

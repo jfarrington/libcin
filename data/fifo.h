@@ -24,6 +24,7 @@ typedef struct {
   long int size;
   int elem_size;
   int full;
+  long int overruns;
   pthread_mutex_t mutex;
   pthread_cond_t signal;
 } fifo;
