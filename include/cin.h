@@ -26,7 +26,6 @@ extern "C" {
 #define CIN_DATA_PORT                49201
 #define CIN_DATA_CTL_PORT            49203
 #define CIN_DATA_MAX_MTU             9000
-#define CIN_DATA_UDP_PACKET_HEADER   48
 #define CIN_DATA_UDP_HEADER          8
 #define CIN_DATA_MAGIC_PACKET        0x0000F4F3F2F1F000
 #define CIN_DATA_MAGIC_PACKET_MASK   0x0000FFFFFFFFFF00
@@ -36,7 +35,6 @@ extern "C" {
 #define CIN_DATA_MAX_PACKETS         542
 #define CIN_DATA_FRAME_HEIGHT        1924
 #define CIN_DATA_FRAME_WIDTH         1152
-#define CIN_DATA_FRAME_SIZE          4432584
 #define CIN_DATA_RCVBUF              100  // Mb 
 
 /* -------------------------------------------------------------------------------
@@ -101,11 +99,22 @@ typedef struct cin_data_frame {
 } cin_data_frame_t;
 
 struct cin_data_stats {
+  // Frame data
+
   int last_frame;
   double framerate;
+
+  // FIFO data
+  
   double packet_percent_full;
   double frame_percent_full;
   double image_percent_full;
+  long int packet_overruns;
+  long int frame_overruns;
+  long int image_overruns;
+
+  // Packet stats
+
   long int dropped_packets;
   long int mallformed_packets;
 };

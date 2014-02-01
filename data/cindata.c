@@ -477,10 +477,6 @@ void *cin_data_assembler_thread(void *args){
 
   cin_data_proc_t *proc = (cin_data_proc_t*)args;
 
-  /* Get first frame pointer from the buffer */
-
-  frame = (cin_data_frame_t*)(*proc->input_get)(proc->input_args, proc->reader);
-
   while(1){
 
     /* Get a packet from the fifo */
@@ -492,12 +488,13 @@ void *cin_data_assembler_thread(void *args){
       continue;
     }
 
-    /* Start assebleing frame */
-
+    /* Process a packet. Dump it if it is not 
+       of a correct size */
     buffer_p = buffer->data;
     buffer_len = buffer->size - CIN_DATA_UDP_HEADER;
     if(buffer_len > CIN_DATA_PACKET_LEN){
       /* Dump the frame and continue */
+      DEBUG_COMMENT("Recieved packet too large");
       (*proc->input_put)(proc->input_args, proc->reader);
       thread_data.mallformed_packets++;
       continue;
@@ -505,11 +502,12 @@ void *cin_data_assembler_thread(void *args){
 
     /* Next lets check the magic number of the packet */
     header = *((uint64_t *)buffer_p) & CIN_DATA_MAGIC_PACKET_MASK; 
-
     if(header != CIN_DATA_MAGIC_PACKET) {
       /* Dump the packet and continue */
+      DEBUG_COMMENT("Packet does not match magic\n");
       (*proc->input_put)(proc->input_args, proc->reader);
       thread_data.mallformed_packets++;
+      continue;
     }
     
     /* First byte of frame header is the packet no*/
@@ -524,12 +522,13 @@ void *cin_data_assembler_thread(void *args){
       /* We have a new frame */
 
       if(frame){
-        frame->number = this_frame;
-        frame->timestamp = this_frame_timestamp;
-        thread_data.last_frame = this_frame;
-
+        // Note this is repeated below, but is here in
+        // case we haven't pushed out the frame at the end
+        DEBUG_PRINT("Missed end of frame on %d\n", last_frame);
+        frame->number = last_frame;
+        frame->timestamp = last_frame_timestamp;
+        thread_data.last_frame = last_frame;
         (*proc->output_put)(proc->output_args);
-
         frame = NULL;
       }
 
@@ -537,8 +536,12 @@ void *cin_data_assembler_thread(void *args){
 
       frame = (cin_data_frame_t*)(*proc->output_get)(proc->output_args);
 
-      memset(frame->data, CIN_DATA_DROPPED_PACKET_VAL, 
-             sizeof(uint16_t) * CIN_DATA_FRAME_WIDTH * CIN_DATA_FRAME_HEIGHT);
+      /* Blank the frame */
+      frame_p = frame->data;
+      int i;
+      for(i=0;i<(CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH);i++){
+        *frame_p++ = CIN_DATA_DROPPED_PACKET_VAL;
+      }
 
       /* Set all the last frame stuff */
       last_frame = this_frame;
@@ -551,13 +554,22 @@ void *cin_data_assembler_thread(void *args){
       thread_data.framerate = timeval_diff(last_frame_timestamp,this_frame_timestamp);
     } // this_frame != last_frame 
 
-    if(this_packet <= last_packet){
+    if(this_packet < last_packet){
       this_packet_msb += 0x100;
+    }
+
+    if(this_packet == last_packet){
+      DEBUG_PRINT("Duplicate packet (frame = %d, packet = 0x%x)\n", 
+                  this_frame, this_packet + this_packet_msb);
+      (*proc->input_put)(proc->input_args, proc->reader);
+      thread_data.mallformed_packets++;
+      continue;
     }
 
     skipped = (this_packet + this_packet_msb) - (last_packet + last_packet_msb + 1);
     if(skipped){
       thread_data.dropped_packets += skipped;
+      DEBUG_PRINT("Skipped %d packets from frame %d\n", skipped, this_frame);
     }
 
     /* Do some bounds checking */
@@ -567,22 +579,37 @@ void *cin_data_assembler_thread(void *args){
       frame_p = frame->data;
       frame_p += (this_packet + this_packet_msb) * CIN_DATA_PACKET_LEN / 2;
       for(i=0;i<buffer_len/2;i++){
-        *frame_p = *buffer_p << 8;
-        buffer_p++;
-        *frame_p += *buffer_p;
-        buffer_p++;
-        frame_p++;
+        *frame_p = *buffer_p++ << 8;
+        *frame_p++ += *buffer_p++;
       }
-    } 
+    } else {
+      DEBUG_PRINT("Packet count out of bounds (frame = %d, packet = 0x%x)\n", 
+                  this_frame, this_packet + this_packet_msb);
+      (*proc->input_put)(proc->input_args, proc->reader);
+      thread_data.mallformed_packets++;
+      continue;
+    }
+
+    /* Now we are done with the packet, we can advance the fifo */
+
+    (*proc->input_put)(proc->input_args, proc->reader);
+
+    /* Now check if we have a full frame. */
+    
+    if((this_packet + this_packet_msb) == (CIN_DATA_MAX_PACKETS - 1)) {
+      // We just recieved the last packet. Push it out. 
+      frame->number = this_frame;
+      frame->timestamp = this_frame_timestamp;
+      thread_data.last_frame = this_frame;
+      (*proc->output_put)(proc->output_args);
+      frame = NULL;
+      //DEBUG_PRINT("Recieved frame %d\n", this_frame);
+    }
 
     /* Now we can set the last packet to this packet */
 
     last_packet = this_packet;
     last_packet_msb = this_packet_msb;
-
-    /* Now we are done with the packet, we can advance the fifo */
-
-    (*proc->input_put)(proc->input_args, proc->reader);
 
   } // while(1)
 
@@ -600,7 +627,8 @@ void *cin_data_monitor_thread(void){
     if((unsigned int)thread_data.last_frame != last_frame){
       // Compute framerate
 
-      f = ((double)thread_data.framerate.tv_usec * 1e-6);
+      f  = (double)thread_data.framerate.tv_usec * 1e-6;
+      f += (double)thread_data.framerate.tv_sec; 
       if(f == 0){
         f = 0;
       } else {
@@ -618,6 +646,9 @@ void *cin_data_monitor_thread(void){
     thread_data.stats.packet_percent_full = fifo_percent_full(thread_data.packet_fifo);
     thread_data.stats.frame_percent_full = fifo_percent_full(thread_data.frame_fifo);
     thread_data.stats.image_percent_full = fifo_percent_full(thread_data.image_fifo);
+    thread_data.stats.packet_overruns = thread_data.packet_fifo->overruns;
+    thread_data.stats.frame_overruns = thread_data.frame_fifo->overruns;
+    thread_data.stats.image_overruns = thread_data.image_fifo->overruns;
     thread_data.stats.dropped_packets = thread_data.dropped_packets;
     thread_data.stats.mallformed_packets = thread_data.mallformed_packets;
 
