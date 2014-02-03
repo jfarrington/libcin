@@ -4,7 +4,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
-#include <unistd.h> /* for sleep() */
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "cin.h"
 #include "cin_register_map.h"

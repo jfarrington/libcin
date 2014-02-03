@@ -9,6 +9,7 @@ extern "C" {
 
 /* Macro Definitions */
 
+#define FIFO_MAX_READERS 10
 #define FIFO_ERR_MEMORY 1
 #define FIFO_NOERR      0
 
@@ -17,12 +18,13 @@ extern "C" {
 typedef struct {
   void *data;
   void *head;
-  void *tail;
+  void *tail[FIFO_MAX_READERS];
   void *end;
-  int *subscribers;
+  int readers;
   long int size;
   int elem_size;
   int full;
+  long int overruns;
   pthread_mutex_t mutex;
   pthread_cond_t signal;
 } fifo;
@@ -35,7 +37,7 @@ void* fifo_get_head(fifo *f);
  * This routine will signal that new data is avaliable in
  * the fifo using "pthread_cond_signal"
  */
-void* fifo_get_tail(fifo *f);
+void* fifo_get_tail(fifo *f, int reader);
 /* 
  * Return the tail of the FIFO element pointed to by f.
  * This routine will block until data is avaliable, waiting
@@ -47,12 +49,16 @@ void fifo_advance_head(fifo *f);
  * Advance the head pointer, signalling we are done filling
  * the fifo with an element.
  */
-void fifo_advance_tail(fifo *f);
+void fifo_advance_tail(fifo *f, int reader);
 /*
  * Advance the tail pointer, signalling we have processed a fifo
  * element and this can be returned
  */
-int fifo_init(fifo *f, int elem_size, long int size);
+int fifo_init(fifo *f, int elem_size, long int size, int readers);
+/*
+ * Initialize the fifo. The FIFO is of length size with a data
+ * structure of length elem_size. 
+ */ 
 long int fifo_used_bytes(fifo *f);
 double fifo_percent_full(fifo *f);
 long int fifo_used_elements(fifo *f);

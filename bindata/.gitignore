@@ -4,3 +4,4 @@
 # ignore swap files
 *.swp
 # ignore binary files
+bin2c

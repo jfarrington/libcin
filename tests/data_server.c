@@ -56,6 +56,7 @@ int main(int argc, char *argv[]){
         fprintf(stderr, "\t-d : delay in miliseconds between frames\n");
         fprintf(stderr, "\t-j : delay in nanoseconds between packets\n");
         fprintf(stderr, "\t-w : walk the test pattern by (n bits)\n");
+        fprintf(stderr, "\t-b : set the send buffer (in Mb)\n");
         fprintf(stderr, "\n");  
         exit(1);
         break;
@@ -100,7 +101,7 @@ int make_test_pattern(uint16_t *data, int height, int width){
 
 int scramble_image(unsigned char* stream, uint16_t *image, int size){
   uint32_t *scramble;
-  scramble = (uint32_t*)descramble_map_forward_bin;
+  scramble = (uint32_t*)descramble_map_forward;
 
   uint16_t *stream_p = (uint16_t*)stream;
   int i;

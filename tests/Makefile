@@ -2,7 +2,7 @@ include ../CONFIG
 
 LDFLAGS+=-L../lib
 LDLIBS+=-lcin
-CFLAGS+=-I.. -I../bindata
+CFLAGS+=-I../bindata -I../include
 
 .PHONY : clean
 

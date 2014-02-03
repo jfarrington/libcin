@@ -3,15 +3,19 @@
 #include <stdlib.h>
 
 #include "mbuffer.h"
+#include "cin.h"
 
 int mbuffer_init(mbuffer_t *buffer, int data_size){
- 
+
+  buffer->size = data_size;
+
+  buffer->data = malloc(CIN_DATA_MBUFFER_SIZE * data_size);
+  if(!buffer->data){
+    return CIN_DATA_MBUFFER_ERR_MEMORY;
+  }
+
   int i;
   for(i=0;i<CIN_DATA_MBUFFER_SIZE;i++){
-    buffer->data[i] = malloc(data_size);
-    if(!buffer->data[i]){
-      return CIN_DATA_MBUFFER_ERR_MEMORY;
-    }
     buffer->active[i] = 0;
     buffer->empty[i] = 1;
   }
@@ -30,7 +34,7 @@ void* mbuffer_get_write_buffer(mbuffer_t *buffer){
   void* p;
 
   pthread_mutex_lock(&buffer->mutex);
-  p = buffer->data[buffer->write_buffer];
+  p = buffer->data + (buffer->size * buffer->write_buffer);
   buffer->active[buffer->write_buffer] = 1;
   pthread_mutex_unlock(&buffer->mutex);
 
@@ -67,7 +71,7 @@ void* mbuffer_get_read_buffer(mbuffer_t *buffer){
   }
 
   // return a pointer to the read buffer
-  rtn = buffer->data[buffer->read_buffer];
+  rtn = buffer->data + (buffer->read_buffer * buffer->size);
 
   // Set the buffer to active
   buffer->active[buffer->read_buffer] = 1;

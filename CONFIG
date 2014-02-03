@@ -1,6 +1,9 @@
 # Variables for compelation
 CC=gcc
-CFLAGS=-Wall -O3 -g -D__DEBUG__ --pic
+
+CFLAGS=-Wall -Ofast -g -D__DEBUG__ --pic
+#CFLAGS+=-D__PROFILE__
+###LDFLAGS=-L. 
 LDFLAGS=-Wl,--no-as-needed -L. 
 LDLIBS=-lpthread -lrt
 
