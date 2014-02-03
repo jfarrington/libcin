@@ -3,7 +3,7 @@
 
 #include "cin.h"
 
-char fccd_config_dir[]="../cin_config/";
+char fccd_config_dir[]="/opt/epics_dev/FCCD/cin_drvr_dev/libcin-repo/cin_config";
 
 char fpga_configfile[]="top_frame_fpga-v1019j.bit";
 char cin_configfile_waveform[]="2013_Nov_30-200MHz_CCD_timing.txt";

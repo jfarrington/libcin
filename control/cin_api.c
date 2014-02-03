@@ -4,7 +4,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
-#include <unistd.h> /* for sleep() */
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "cin.h"
 #include "cin_register_map.h"
@@ -547,7 +548,7 @@ int cin_get_fclk_status(struct cin_port* cp){
 		fprintf(stdout,"  FCLK Frequency = 250 MHz\n"); 
 	}
 	else{
-		fprintf(stdout,"  FCLK Frequency = 125 MHz\n"); 
+		fprintf(stdout,"  ERROR: Unknown FCLK Frequency\n"); 
 		return -1;
 	}
 	return 0;		
