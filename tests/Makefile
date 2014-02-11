@@ -27,5 +27,9 @@ clean:
 	rm -f *.o
 	rm -f data_server
 	rm -f make_descramble_map
+	rm -f cin_test
+	rm -f cin_power_up
+	rm -f cin_power_down
+
 
 
