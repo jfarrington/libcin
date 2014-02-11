@@ -231,7 +231,7 @@ int cin_data_init(void){
 
   pthread_create(&threads[0], NULL, (void *)cin_data_listen_thread, NULL);
   pthread_create(&threads[1], NULL, (void *)cin_data_assembler_thread, NULL);
-  pthread_create(&threads[2], NULL, (void *)cin_data_monitor_thread, NULL);
+  // pthread_create(&threads[2], NULL, (void *)cin_data_monitor_thread, NULL);
 
   return 0;
 }
