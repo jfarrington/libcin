@@ -10,7 +10,8 @@ int main (){
 	cin_init_ctl_port(&cp[0], 0, 0);/* use default CIN control-port IP addr and IP port */
 	cin_init_ctl_port(&cp[1], 0,CIN_DATA_CTL_PORT);
 
-	cin_set_bias(&cp[0],0);   		//Turn OFF camera CCD bias
+  fprintf(stdout,"Turning off clock and bias.......\n");
+	cin_set_bias(&cp[0],0);   	//Turn OFF camera CCD bias
 	sleep(1);						
 
 	cin_set_clocks(&cp[0],0);		//Turn OFF camera CCD bias
@@ -19,7 +20,7 @@ int main (){
 	cin_fp_off(&cp[0]);      		//Power OFF CIN front Panel
 	sleep(2);	
 
-	cin_off(&cp[0]);          	  //Power OFF CIN
+	cin_off(&cp[0]);          	//Power OFF CIN
 	sleep(4);
 
 	fprintf(stdout,"Closing ports.......\n");
