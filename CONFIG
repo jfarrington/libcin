@@ -2,7 +2,8 @@
 CC=gcc
 CFLAGS=-Wall -Ofast -g -D__DEBUG__ --pic
 #CFLAGS+=-D__PROFILE__
-LDFLAGS=-L. 
+#LDFLAGS=-L. 
+LDFLAGS=-Wl,--no-as-needed -L.
 LDLIBS=-lpthread -lrt
 
 # Stuff for install files
