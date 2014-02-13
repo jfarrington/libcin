@@ -400,7 +400,6 @@ int cin_data_init_buffers(int packet_buffer_len, int frame_buffer_len){
   thread_data.image_buffer = malloc(sizeof(image_buffer_t));
   thread_data.image_buffer->data = malloc(sizeof(cin_data_frame_t));
   thread_data.image_buffer->waiting = 0;
-
   return 0;
 }
 
