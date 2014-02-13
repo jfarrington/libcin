@@ -1,0 +1,4 @@
+Clean up global variables in cindata.c
+Add routines to configure library on startup
+Add routine to start and stop the text monitor
+Add comments to cin.h for functions

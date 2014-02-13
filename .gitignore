@@ -1,9 +1,0 @@
-# ignore objects and archives, anywhere in the tree.
-*.[oa]
-*.so
-# ignore swap files
-*.swp
-# ignore binary files
-cindump
-cintest
-descramble_test
