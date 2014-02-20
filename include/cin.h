@@ -22,9 +22,9 @@ extern "C" {
 #define CIN_CTL_IP                   "192.168.1.207"
 #define CIN_CTL_PORT                 49200
 
-#define CIN_DATA_IP                  "10.0.5.207"
+#define CIN_DATA_IP                  "10.23.5.217"
 #define CIN_DATA_PORT                49201
-#define CIN_DATA_CTL_PORT            49203
+#define CIN_DATA_CTL_PORT            49202
 #define CIN_DATA_MAX_MTU             9000
 #define CIN_DATA_UDP_HEADER          8
 #define CIN_DATA_MAGIC_PACKET        0x0000F4F3F2F1F000
