@@ -247,7 +247,7 @@ int cin_load_config(struct cin_port* cp,char *filename){
     		sscanf (_line,"%s %s",_regstr,_valstr);
         _regul=strtoul(_regstr,NULL,16);
         _valul=strtoul(_valstr,NULL,16);				
-				usleep(10000);   /*for flow control*/ 
+				usleep(100000);   /*for flow control*/ 
         _status=cin_ctl_write(cp,_regul,_valul);
         if (_status != 0){goto error;}    
 //      	fprintf(stdout," Get line:	%04x %04x\n",_regul,_valul);//DEBUG  
