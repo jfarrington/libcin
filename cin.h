@@ -7,12 +7,12 @@
 #include <arpa/inet.h>
 #include <sys/time.h>
 
-//#define CIN_CTL_IP                   "192.168.1.207"
-#define CIN_CTL_IP                   "127.0.0.1" //DEBUG
+#define CIN_CTL_IP                   "192.168.1.207"
+//#define CIN_CTL_IP                   "127.0.0.1" //DEBUG
 #define CIN_CTL_PORT                 49200
 
-//#define CIN_DATA_IP                  "10.23.5.1"
-#define CIN_DATA_IP                  "127.0.0.1" //DEBUG
+#define CIN_DATA_IP                  "10.23.5.217"
+//#define CIN_DATA_IP                  "127.0.0.1" //DEBUG
 #define CIN_DATA_PORT                49201
 #define CIN_DATA_CTL_PORT            49202
 
