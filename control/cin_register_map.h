@@ -1,6 +1,11 @@
 #ifndef CIN_REGISTER_MAP_H
 #define CIN_REGISTER_MAP_H
 
+/* not strictly necessary if file contains only macro defs */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* ============================================================================
 *		CIN Registers
 * ============================================================================
@@ -60,7 +65,7 @@
 
 /* Frame FPGA Control */
 #define CMD_PROGRAM_FRAME			0x0041
-#define REG_FRM_RESET 				0x0036; /* Frame Reset */
+#define REG_FRM_RESET 				0x0036 /* Frame Reset */
 #define REG_FRM_10GbE_SEL			0x0037; /* 10GbE Link Select */
 
 /* Clock Enables */
@@ -277,13 +282,13 @@
 
 #define REG_EXPOSURETIMEMSB_REG		      	0x8206
 #define REG_EXPOSURETIMELSB_REG		      	0x8207
-#define REG_ALTEXPOSURETIMEMSB_REG	      	0x8306
-#define REG_ALTEXPOSURETIMELSB_REG	      	0x8307
+#define REG_ALTEXPOSURETIMEMSB_REG	      0x8306
+#define REG_ALTEXPOSURETIMELSB_REG	      0x8307
 
 #define REG_TRIGGERREPETITIONTIMEMSB_REG	0x8208
 #define REG_TRIGGERREPETITIONTIMELSB_REG	0x8209
-#define REG_DELAYTOEXPOSUREMSB_REG		0x820A
-#define REG_DELAYTOEXPOSURELSB_REG		0x820B
+#define REG_DELAYTOEXPOSUREMSB_REG	0x820A
+#define REG_DELAYTOEXPOSURELSB_REG	0x820B
 #define REG_NUMBEROFEXPOSURE_REG		0x820C
 #define REG_SHUTTERTIMEMSB_REG			0x820D
 #define REG_SHUTTERTIMELSB_REG			0x820E
@@ -334,5 +339,9 @@
 
 /* Common Commands */
 #define CMD_READ_REG            0x0001 /* Read Register */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* CIN_REGISTER_MAP_H */

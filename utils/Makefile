@@ -1,18 +1,17 @@
 include ../CONFIG
 
 LDFLAGS+=-L../lib 
-LDLIBS+=-lcin -ltiff
-CFLAGS+=-I..
-
-#For testing compression uncomment
-#LDLIBS+=-llz4
-#CFLAGS+=-D__COMPRESS__
+LDLIBS+=-ltiff -lcin
+CFLAGS+=-I../include
 
 .PHONY : clean
 
-all: cindump
+all: cindump.o cindump
+
+cindump.o: cindump.c
 
 cindump: cindump.o ../lib/libcin.a
+	$(CC) $(LDFLAGS) cindump.o -o $@ $(LDLIBS) 
 
 clean:
 	rm -f *.o

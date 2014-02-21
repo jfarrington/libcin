@@ -5,11 +5,14 @@
 #include <pthread.h>
 #include <stdint.h>
 #include <tiffio.h>
+#include <signal.h>
 
 #include "cin.h"
-#ifdef __COMPRESS__
-  #include "lz4.h"
-#endif
+
+void int_handler(int dummy){
+  cin_data_stop_threads();
+  exit(0);
+}
 
 int main(int argc, char *argv[]){
 
@@ -20,13 +23,15 @@ int main(int argc, char *argv[]){
   TIFF *tfp;
   int j;
   uint16_t *p;
-  FILE *fp;
+  FILE *fp = NULL;
   char filename[256];
   int tiff_output = 1;
 
   /*   */
   struct cin_port port;
-  struct cin_data_frame *frame;
+
+  uint16_t buffer[CIN_DATA_FRAME_WIDTH * CIN_DATA_FRAME_HEIGHT];
+  uint16_t frame_number;
 
   while((c = getopt(argc, argv, "hr")) != -1){
     switch(c){
@@ -41,27 +46,29 @@ int main(int argc, char *argv[]){
     }
   }
 
-  if ( (j=cin_init_data_port(&port, NULL, 0, NULL, 0, 0)) ){
-    printf("error: cin_init_data_port:%d\n", j);
+  fprintf(stderr, "\n\n\n\n");
+
+  if(cin_init_data_port(&port, NULL, 0, NULL, 0, 1000)){
     exit(1);
   }
 
   printf("port.srvaddr = %s\n", port.srvaddr);
   
   /* Start the main routine */
-  if( (j=cin_data_init()) ){
-    printf("error: cin_data_init:%d\n", j);
+  if(cin_data_init(CIN_DATA_MODE_PUSH_PULL, 2000, 2000)){
     exit(1);
   }
 
-  char* buffer;
-  buffer = malloc(sizeof(char) * CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH);
-  int size;
+  signal(SIGINT, int_handler);
+
+  cin_data_start_monitor_output();
 
   while(1){
-    frame = cin_data_get_next_frame();
+    // Load the buffer
+    cin_data_load_frame(buffer, &frame_number);
+
     if(tiff_output){
-      sprintf(filename, "frame%08d.tif", frame->number);
+      sprintf(filename, "frame%08d.tif", frame_number);
       tfp = TIFFOpen(filename, "w");
 
       TIFFSetField(tfp, TIFFTAG_IMAGEWIDTH, CIN_DATA_FRAME_WIDTH);
@@ -71,7 +78,7 @@ int main(int argc, char *argv[]){
       TIFFSetField(tfp, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
       TIFFSetField(tfp, TIFFTAG_ORIENTATION, ORIENTATION_BOTLEFT);
 
-      p = frame->data;
+      p = buffer;
       for(j=0;j<CIN_DATA_FRAME_HEIGHT;j++){
         TIFFWriteScanline(tfp, p, j, 0);
         p += CIN_DATA_FRAME_WIDTH;
@@ -80,26 +87,22 @@ int main(int argc, char *argv[]){
       TIFFClose(tfp);
 
     } else {
-      sprintf(filename, "frame%08d.bin", frame->number);
-      fp = fopen(filename, "w");
-      if(fp){
-        /* Compress stream */
-#ifdef __COMPRESS__
-        size = LZ4_compress((char *)frame->data, buffer, 2 * CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH);
-        fwrite(buffer, sizeof(char), size, fp);
-#else      
-        fwrite(frame->data, sizeof(uint16_t),
-               CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH, fp);
-#endif
-        fclose(fp);
+      if(!fp || !(frame_number % 100)){
+        if(fp){
+          fclose(fp);
+        }
+        sprintf(filename, "frame%08d.bin", frame_number);
+        fp = fopen(filename, "w");
       }
-
+      fwrite(buffer, sizeof(uint16_t),
+             CIN_DATA_FRAME_HEIGHT * CIN_DATA_FRAME_WIDTH, fp);
     }
 
-    cin_data_release_frame(1);
   }
 
   cin_data_wait_for_threads();
+
+  fprintf(stderr, "\n\n\n\n");
 
   return(0);
 }
