@@ -23,7 +23,7 @@ extern "C" {
 //#define CIN_CTL_IP                   "127.0.0.1" //DEBUG
 #define CIN_CTL_PORT                 49200
 
-#define CIN_DATA_IP                  "10.23.5.217"
+#define CIN_DATA_IP                  "10.23.5.127"
 //#define CIN_DATA_IP                  "127.0.0.1" //DEBUG
 
 #define CIN_DATA_PORT                49201
