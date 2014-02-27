@@ -26,7 +26,7 @@ int main(int argc, char *argv[]){
 	struct cin_port cp[2];
 	
 	cin_init_ctl_port(&cp[0], 0, 0);/* Use default CIN control port */
-	cin_init_ctl_port(&cp[1], 0,CIN_DATA_CTL_PORT);/* Use CIN control data port */
+	cin_init_ctl_port(&cp[1], 0,CIN_CTL_FRMW_PORT);/* Use CIN firmware configuration port*/
 	printf("*%s*\n",argv[1]);
 
 	if (argv[1]==NULL){

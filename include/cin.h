@@ -20,14 +20,13 @@ extern "C" {
  */
 
 #define CIN_CTL_IP                   "192.168.1.207"
-//#define CIN_CTL_IP                   "127.0.0.1" //DEBUG
 #define CIN_CTL_PORT                 49200
+#define CIN_CTL_FRMW_PORT            49202
 
 #define CIN_DATA_IP                  "10.23.5.127"
-//#define CIN_DATA_IP                  "127.0.0.1" //DEBUG
-
 #define CIN_DATA_PORT                49201
-#define CIN_DATA_CTL_PORT            49202
+#define CIN_DATA_CTL_PORT            49203
+
 #define CIN_DATA_MAX_MTU             9000
 #define CIN_DATA_UDP_HEADER          8
 #define CIN_DATA_MAGIC_PACKET        0x0000F4F3F2F1F000
@@ -117,26 +116,117 @@ struct cin_data_stats {
   long int image_overruns;
 
   // Packet stats
-
+  
   long int dropped_packets;
   long int mallformed_packets;
 };
 
-/* -------------------------------------------------------------------------------
- *
+/* ---------------------------------------------------------------------
  * CIN Control Routines
  *
- * -------------------------------------------------------------------------------
+ * ---------------------------------------------------------------------
  */
 
+/*------------------------
+ * UDP Socket
+ *------------------------*/
 int cin_init_ctl_port(struct cin_port* cp, char* ipaddr, uint16_t port);
-uint16_t cin_ctl_read(struct cin_port* cp, uint16_t reg);
-int cin_ctl_write(struct cin_port* cp, uint16_t reg, uint16_t val);
-int cin_shutdown(struct cin_port* cp);
 
-void cin_power_up();
-void cin_power_down();
-void cin_report_power_status();
+int cin_close_ctl_port(struct cin_port* cp);
+
+/*------------------------
+ * CIN Read-Write
+ *------------------------*/
+uint16_t cin_ctl_read(struct cin_port* cp, uint16_t reg);
+
+int cin_ctl_write(struct cin_port* cp, uint16_t reg, uint16_t val);			
+	//TODO - implement write verification procedure */
+
+int cin_stream_write(struct cin_port* cp, char* val,int size);
+	//TODO - implement write verification procedure 
+
+/*------------------------
+ * CIN PowerUP-PowerDown
+ *------------------------*/
+int cin_on(struct cin_port* cp);          
+
+int cin_off(struct cin_port* cp);        	
+
+int cin_fp_on(struct cin_port* cp);      	
+
+int cin_fp_off(struct cin_port* cp);    	
+
+/*------------------------
+ * CIN Configuration-Status
+ *------------------------*/
+int cin_load_config(struct cin_port* cp,char *filename);
+				
+int cin_load_firmware(struct cin_port* cp,struct cin_port* dcp, char *filename);				
+int cin_set_fclk(struct cin_port* cp,uint16_t clkfreq); 
+/*
+ * Input:clkfreq={125, 180, 200, 250}(MHz)
+ */	//TODO:-Check that clock is properlly set
+
+int cin_get_fclk_status(struct cin_port* cp); 
+/*
+ * Return:{0-FCLK Configured, -1 -FCLK not configured} 		
+ */	//TODO:-Check Boolean comparisons
+
+int cin_get_cfg_fpga_status(struct cin_port* cp);  		
+/*
+ *Return:{0-FPGA Configured, -1 -FPGA not configured}
+ */
+
+int cin_get_power_status(struct cin_port* cp);
+
+/*------------------------
+ * CIN Control 
+ *------------------------*/
+int cin_set_bias(struct cin_port* cp,int val);   		
+/*
+ * Input:val={1-ON,0-OFF}
+ */																				
+
+int cin_set_clocks(struct cin_port* cp,int val);  	
+/*		
+ * Input:val={1-ON,0-OFF}
+ */
+
+int cin_set_trigger(struct cin_port* cp,int val); 	
+/*		
+ * Input:val={0-Internal,1-External1,2-External2,3-External 1 or 2} 
+ */
+ 
+uint16_t cin_get_trigger_status (struct cin_port* cp);	
+/*
+ * Return:{0-Internal, 1-External1, 2-External2, 3-External 1 or 2}
+ */
+
+int cin_set_exposure_time(struct cin_port* cp,float e_time);  
+/*		
+ * Input:e_time (ms)			
+ */	//TODO:-Malformed packet when MSB=0x0000
+
+int cin_set_trigger_delay(struct cin_port* cp,float t_time);  
+/*		
+ * Input:t_time (us)			
+ */	//TODO:-Malformed packet when MSB=0x0000
+
+int cin_set_cycle_time(struct cin_port* cp,float c_time);	    
+/*		
+ * Input:c_time (ms)		 
+ */    	//TODO:-Malformed packet when MSB=0x0000	
+
+/*------------------------
+ * Frame Acquistion
+ *------------------------*/
+int cin_set_frame_count_reset(struct cin_port* cp); 
+
+/*------------------------
+ * Testing 
+ *------------------------*/
+int cin_test_cfg_leds(struct cin_port* cp); //Flash configuration LEDs 	
+
 
 /* ---------------------------------------------------------------------
  *
