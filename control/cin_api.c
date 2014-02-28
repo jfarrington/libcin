@@ -96,8 +96,8 @@ int cin_stream_write(struct cin_port* cp, char *val,int size) {
  	int rc;
     
  	rc = sendto(cp->sockfd, val, size, 0,\
-    								(struct sockaddr*)&cp->sin_srv, \
-    								sizeof(cp->sin_srv));
+    				(struct sockaddr*)&cp->sin_srv, \
+    				sizeof(cp->sin_srv));
  	if(rc != size ) {
   	perror(" CIN control port - sendto( ) failure!!");
    	goto error;
@@ -131,8 +131,8 @@ uint16_t cin_ctl_read(struct cin_port* cp, uint16_t reg) {
  	cin_set_sock_timeout(cp);
 
  	n = recvfrom(cp->sockfd, (void*)&buf, sizeof(buf), 0,\
-      									(struct sockaddr*)&cp->sin_cli, \
-                            (socklen_t*)&cp->slen);
+      				(struct sockaddr*)&cp->sin_cli, \
+                            	(socklen_t*)&cp->slen);
  	if(n != sizeof(buf)) {
  		if(n == 0)
     	perror(" CIN has shutdown control port connection");
@@ -225,10 +225,9 @@ int cin_fp_off(struct cin_port* cp){
 }
 
 /******************* CIN Configuration/Status *************************/
-/*TODO:-Check that file is loaded properly*/
+
 int cin_load_config(struct cin_port* cp,char *filename){
 
- 	int i=1;//DEBUG 
  	int _status;
  	uint32_t _regul,_valul;
 	char _regstr[12],_valstr[12],_line [1024];
@@ -240,30 +239,28 @@ int cin_load_config(struct cin_port* cp,char *filename){
 		/* Read a line an filter out comments */     
 		while(fgets(_line,sizeof _line,file)!= NULL){ 
 			_line[strlen(_line)-1]='\0';   
-//			fprintf(stdout,"line%u:",i);							//DEBUG
-      i++;  																		//DEBUG
-      if ('#' == _line[0]||'\0' == _line[0]){  
-//        fprintf(stdout," Ignore line\n");				//DEBUG 
-      }
-      else {
-    		sscanf (_line,"%s %s",_regstr,_valstr);
-        _regul=strtoul(_regstr,NULL,16);
-        _valul=strtoul(_valstr,NULL,16);				
+
+	      		if ('#' == _line[0]||'\0' == _line[0]){
+				//fprintf(stdout," Ignore line\n");	//DEBUG 
+     	 		}	
+      			else {
+    				sscanf (_line,"%s %s",_regstr,_valstr);
+        			_regul=strtoul(_regstr,NULL,16);
+        			_valul=strtoul(_valstr,NULL,16);				
 				usleep(100000);   /*for flow control*/ 
-        _status=cin_ctl_write(cp,_regul,_valul);
-        if (_status != 0){goto error;}    
-//      	fprintf(stdout," Get line:	%04x %04x\n",_regul,_valul);//DEBUG  
-      }   
-    }
-    fprintf(stdout,"  CIN configuration loaded!\n");
-    fclose(file);
-  }
-  else {
-  	perror(filename);
-  } 
-  return 0;
+        			_status=cin_ctl_write(cp,_regul,_valul);
+        			if (_status != 0){goto error;}     
+      			}   
+    		}		
+		fprintf(stdout,"  CIN configuration loaded!\n");
+    		fclose(file);
+  	}
+  	else {
+  		perror(filename);
+  	} 
+  	return 0;
   
-  error:{return -1;}	
+  	error:{return -1;}	
 }
 
 int cin_load_firmware(struct cin_port* cp,struct cin_port* dcp,char *filename){
@@ -282,7 +279,7 @@ int cin_load_firmware(struct cin_port* cp,struct cin_port* dcp,char *filename){
 		if (_status != 0){goto error;}	
 		sleep(1);
 		
-		/*Read file and send in 128 Byte packets*/ 
+		/*Read file and send in 128 Byte chunks*/ 
 		num_e=fread(buffer,1, sizeof(buffer), file);  			
 		while (num_e != 0 ){  	
 			_status=cin_stream_write(dcp, buffer,num_e);			
@@ -353,6 +350,7 @@ static int dco_unfreeze (struct cin_port* cp){
 
 	error:{return _status;}
 }
+
 static int fclk_write(struct cin_port* cp, uint16_t reg,uint16_t val){
 
 	int _status;
@@ -370,6 +368,7 @@ static int fclk_write(struct cin_port* cp, uint16_t reg,uint16_t val){
 
 	error:{return _status;}
 }
+
 /*TODO:-Check that clock is properlly set*/
 int cin_set_fclk(struct cin_port* cp,uint16_t clkfreq){
 	
@@ -614,9 +613,10 @@ int cin_get_cfg_fpga_status(struct cin_port* cp){
 }
 
 static double current_calc(uint16_t val) {
+	
 	double _current;
-  
-  if(val >= 0x8000) {
+	
+	if(val >= 0x8000) {
   	_current = 0.000000476*(0x10000 - val)/0.003;
  	}
  	else { 
@@ -731,7 +731,7 @@ int cin_set_clocks(struct cin_port* cp,int val){
 	
 	error:{return _status;}	
 }
-/*TODO:-Malformed packet when MSB=0x0000*/
+
 int cin_set_trigger(struct cin_port* cp,int val){
 
 	int _status;
@@ -796,23 +796,72 @@ uint16_t cin_get_trigger_status (struct cin_port* cp){
 
 	error:{return -1;}		
 }
-/*TODO:-Malformed packet when MSB=0x0000*/
+
+static int clearFocusBit(struct cin_port* cp){
+
+	uint16_t val1, _status;
+	
+	val1 =  cin_ctl_read(cp,REG_CLOCKCONFIGREGISTER0_REG);
+	_status = cin_ctl_write(cp,REG_CLOCKCONFIGREGISTER0_REG, val1 & 0xFFFD);
+	return _status;
+}
+
+
+static int setFocusBit(struct cin_port* cp){
+
+	uint16_t val1, _status;
+
+	val1 =  cin_ctl_read(cp,REG_CLOCKCONFIGREGISTER0_REG);
+	_status = cin_ctl_write(cp,REG_CLOCKCONFIGREGISTER0_REG, val1 | 0x0002);
+	return _status;
+}
+
+int cin_set_trigger_mode(struct cin_port* cp,int val){
+
+	int _status;
+
+	if (val == 0){
+		_status = clearFocusBit(cp);
+        	if (_status != 0) {goto error;}
+
+        	_status=cin_ctl_write(cp,REG_NUMBEROFEXPOSURE_REG, 0x0001);
+		if (_status != 0) {goto error;}
+    	}
+
+	else{ 	
+		_status = clearFocusBit(cp);
+                if (_status != 0) {goto error;}
+                                                                                        	
+		_status=cin_ctl_write(cp,REG_NUMBEROFEXPOSURE_REG, 0x0000);
+		if (_status != 0) {goto error;}	
+
+		_status = setFocusBit(cp);
+		if (_status != 0) {goto error;}
+	}		
+	return (0);	
+	
+	error:
+       		error("Write error: cin_set_trigger_mode\n");
+		return -1;
+}        
+                      
+//TODO:Malformed packet when MSB=0x0000*/
 int cin_set_exposure_time(struct cin_port* cp,float ftime){  
 
  	int _status;
-  uint32_t _time, _msbval,_lsbval;
-  float _fraction;
+	uint32_t _time, _msbval,_lsbval;
+	float _fraction;
 
 	fprintf(stdout,"Exposure Time :%f ms\n", ftime);	//DEBUG
 	ftime=ftime*100;
-	_time=(uint32_t)ftime;						//Extract integer from decimal
-	_fraction=ftime-_time;						//Extract fraction from decimal
+	_time=(uint32_t)ftime;	//Extract integer from decimal
+	_fraction=ftime-_time;	//Extract fraction from decimal
 	
-  if(_fraction!=0){									//Check that there is no fractional value
-  	perror("ERROR:Smallest precision that can be specified is .01 ms\n");
-  	_status= -1;
-  }
-  else{	
+  	if(_fraction!=0){	//Check that there is no fractional value
+  		perror("ERROR:Smallest precision that can be specified is .01 ms\n");
+  		_status= -1;
+  	}
+  	else{	
 		//fprintf(stdout,"Hex value    :0x%08x\n",_time);		
  		_msbval=(uint32_t)(_time>>16);
  		_lsbval=(uint32_t)(_time & 0xffff);
@@ -833,17 +882,17 @@ int cin_set_trigger_delay(struct cin_port* cp,float ftime){
 	
 	int _status;
 	uint32_t _time, _msbval,_lsbval;
-  float _fraction;
+  	float _fraction;
 
 	fprintf(stdout,"Trigger Delay Time:%f us\n", ftime);	  //DEBUG
 	_time=(uint32_t)ftime;									//extract integer from decimal
 	_fraction=ftime-_time;						      //extract fraction from decimal
 	//fprintf(stdout,"Fraction	   :%f\n",_fraction);  			//DEBUG
-  if(_fraction!=0){									//Check that there is no fractional value
-  	perror("ERROR:Smallest precision that can be specified is 1 us\n");
-  	_status= 1;
-  }
-  else{	
+ 	 if(_fraction!=0){									//Check that there is no fractional value
+  		perror("ERROR:Smallest precision that can be specified is 1 us\n");
+  		_status= 1;
+ 	 }
+  	else{	
 		//fprintf(stdout,"Hex value    :0x%08x\n",_time);		
  		_msbval=(uint32_t)(_time>>16);
  		_lsbval=(uint32_t)(_time & 0xffff);
@@ -860,22 +909,23 @@ int cin_set_trigger_delay(struct cin_port* cp,float ftime){
 
 	error:{return _status;}		
 }
+
 /*TODO:-Malformed packet when MSB=0x0000*/
 int cin_set_cycle_time(struct cin_port* cp,float ftime){
 
 	int _status;
 	uint32_t _time, _msbval,_lsbval;
-  float _fraction;
+	float _fraction;
   													
 	fprintf(stdout,"Cycle Time:%f ms\n", ftime);	  //DEBUG
 	_time=(uint32_t)ftime;									//extract integer from decimal
 	_fraction=ftime-_time;						      //extract fraction from decimal
 	//fprintf(stdout,"Fraction	   :%f\n",_fraction);  			//DEBUG
-  if(_fraction!=0){									//Check that there is no fractional value
-  	perror("ERROR:Smallest precision that can be specified is 1 ms\n");
-  	_status= -1;
-  }
-  else{	
+  	if(_fraction!=0){									//Check that there is no fractional value
+  		perror("ERROR:Smallest precision that can be specified is 1 ms\n");
+  		_status= -1;
+  	}	
+  	else{	
 		//fprintf(stdout,"Hex value    :0x%08x\n",_time);		
  		_msbval=(uint32_t)(_time>>16);
  		_lsbval=(uint32_t)(_time & 0xffff);
@@ -905,6 +955,7 @@ int cin_set_frame_count_reset(struct cin_port* cp){
 
 	error:{return _status;}	
 }
+
 /************************ Testing *****************************/
 int cin_test_cfg_leds(struct cin_port* cp){
 /* Test Front Panel LEDs */

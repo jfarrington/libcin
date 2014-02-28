@@ -101,6 +101,12 @@ int main(int argc, char *argv[]){
  		printf("getTriggerStatus returns:%u\n",val);
 	}
 
+	else if (strcmp(argv[1],"cin_set_trigger_mode") == 0){
+		int val;
+		val = atoi(argv[2]);
+		cin_set_trigger_mode(&cp[0],val);
+	}
+	
 	else if (strcmp(argv[1],"cin_set_exposure_time") == 0){
 		float val;
 		sscanf(argv[2], "%f", &val);
@@ -153,6 +159,7 @@ int main(int argc, char *argv[]){
 		\n cin_set_clocks (int val)  ;val={1-ON,0-OFF}\
 		\n cin_set_trigger (int val) ;val={0-Int,1-Ext1,2-Ext2,3-Ext 1 or 2}\
 		\n cin_get_trigger_status\
+		\n cin_set_trigger_mode      ;val={0-Stop,1-Continuous}\
 		\n cin_set_exposure_time (float e_time)   ;(ms)\
 		\n cin_set_trigger_delay (float d_time)  	;(us)\
 		\n cin_set_cycle_time (float c_time)      ;(ms)\
