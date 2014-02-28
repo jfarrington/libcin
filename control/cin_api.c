@@ -11,6 +11,69 @@
 #include "cin_register_map.h"
 #include "cin_api.h"
 
+// Function cin_set_trigger_mode
+// val 0 = Stop Triggers, set Number of exposures = 1
+// val 1 = Set continuous trigger, Number of exposures = 0
+int cin_set_trigger_mode(struct cin_port* cp,int val) 
+{
+   int status;
+   
+	
+   if (val == 0)
+   {
+      // From stopTriggers.py
+      status = clearFocusBit(cp);
+      if (status != 0) {goto error;}
+      // Set Number of Exposures to value = 0001
+      status=cin_ctl_write(cp,REG_NUMBEROFEXPOSURE_REG, 0x0001);
+      if (_status != 0) {goto error;}
+   }
+   
+   else
+   {
+      // From setContTriggers.py
+      // Clear the Focus bit
+      status = clearFocusBit(cp);
+      if (status != 0) {goto error;}
+
+      // # Set Number of Exposures to value = 0000
+      status=cin_ctl_write(cp,REG_NUMBEROFEXPOSURE_REG, 0x0000);
+      if (_status != 0) {goto error;}
+
+      // Set the Focus bit
+      status = setFocusBit(cp);
+      if (_status != 0) {goto error;}
+      
+   }
+   
+   return (0);
+error:	
+  	perror("Write error: cin_set_trigger_mode\n");
+  	return -1;
+
+}
+
+// private function
+static int clearFocusBit(struct cin_port* cp)
+{
+   uint16_t val, status;
+   
+   val1 =  cin_ctl_read(cp,REG_CLOCKCONFIGREGISTER0_REG);
+   status =cin_ctl_write(cp,REG_CLOCKCONFIGREGISTER0_REG, val1 &= 0xFFFD);
+   return status;
+}
+
+// private function
+static int setFocusBit(struct cin_port* cp)
+{
+   uint16_t val, status;
+   
+   val1 =  cin_ctl_read(cp,REG_CLOCKCONFIGREGISTER0_REG);
+   status =cin_ctl_write(cp,REG_CLOCKCONFIGREGISTER0_REG, val1 | 0x0002);
+   return status;
+}
+
+
 /**************************** UDP Socket ******************************/
 static int cin_set_sock_timeout(struct cin_port* cp) {
 
