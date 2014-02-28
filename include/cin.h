@@ -202,6 +202,12 @@ uint16_t cin_get_trigger_status (struct cin_port* cp);
  * Return:{0-Internal, 1-External1, 2-External2, 3-External 1 or 2}
  */
 
+int cin_set_trigger_mode(struct cin_port* cp,int val);
+/*
+ * Input:val= {0-Stop Triggers, set Number of exposures = 1, \
+ * 1-Continuous Trigger, set Number of exposures = 0}
+ */
+
 int cin_set_exposure_time(struct cin_port* cp,float e_time);  
 /*		
  * Input:e_time (ms)			
