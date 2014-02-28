@@ -16,7 +16,7 @@ static int cin_set_sock_timeout(struct cin_port* cp) {
 
 	if(setsockopt(cp->sockfd, SOL_SOCKET, SO_RCVTIMEO,
                     (void*)&cp->tv, sizeof(struct timeval)) < 0){
-    perror("setsockopt(timeout");
+    		perror("setsockopt(timeout");
 	}
 	return 0;
 }
@@ -32,10 +32,10 @@ int cin_init_ctl_port(struct cin_port* cp, char* ipaddr,
 	else { cp->srvaddr = strndup(ipaddr, strlen(ipaddr)); }
 	
 	if(port == 0) { cp->srvport = CIN_CTL_PORT; }
-  else { cp->srvport = port; }
+  	else { cp->srvport = port; }
 
 	cp->sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-  if(cp->sockfd < 0) {
+  	if(cp->sockfd < 0) {
   	perror("CIN control port - socket() failed !!!");
 	}
 
@@ -50,34 +50,34 @@ int cin_init_ctl_port(struct cin_port* cp, char* ipaddr,
  	cin_set_sock_timeout(cp);
 
  	/* initialize CIN (server) and client (us!) sockaddr structs */
-  memset(&cp->sin_srv, 0, sizeof(struct sockaddr_in));
+  	memset(&cp->sin_srv, 0, sizeof(struct sockaddr_in));
  	memset(&cp->sin_cli, 0, sizeof(struct sockaddr_in));
  	cp->sin_srv.sin_family = AF_INET;
  	cp->sin_srv.sin_port = htons(cp->srvport);
  	cp->slen = sizeof(struct sockaddr_in);
  	if(inet_aton(cp->srvaddr, &cp->sin_srv.sin_addr) == 0) {
-  	perror("CIN control port - inet_aton() failed!!");
+  		perror("CIN control port - inet_aton() failed!!");
  	}
  	return 0;
 }
 
 int cin_close_ctl_port(struct cin_port* cp) {
 
-    if(cp->sockfd) { close(cp->sockfd); }
-    return 0;
+    	if(cp->sockfd) { close(cp->sockfd); }
+    	return 0;
 }
 /*************************** CIN Read/Write ***************************/
 
 int cin_ctl_write(struct cin_port* cp, uint16_t reg, uint16_t val){
 
  	uint32_t _valwr;
-  int rc;
+  	int rc;
 
-  _valwr = ntohl((uint32_t)(reg << 16 | val));
-  rc = sendto(cp->sockfd, &_valwr, sizeof(_valwr), 0,\
+  	_valwr = ntohl((uint32_t)(reg << 16 | val));
+  	rc = sendto(cp->sockfd, &_valwr, sizeof(_valwr), 0,\
          						(struct sockaddr*)&cp->sin_srv,\
          						sizeof(cp->sin_srv));
-  if(rc != sizeof(_valwr) ) {
+  	if(rc != sizeof(_valwr) ) {
    	perror("CIN control port - sendto( ) failure!!");
    	goto error;
  	}
@@ -86,8 +86,8 @@ int cin_ctl_write(struct cin_port* cp, uint16_t reg, uint16_t val){
  	return 0;
  	
 	error:{	
-  	perror("Write error control port\n");
-  	return -1;
+  		perror("Write error control port\n");
+  		return -1;
 	}
 }
 
@@ -116,7 +116,7 @@ uint16_t cin_ctl_read(struct cin_port* cp, uint16_t reg) {
 	 
 	int _status;
 	uint32_t buf = 0;
-  ssize_t n;
+  	ssize_t n;
 
  	_status=cin_ctl_write(cp, REG_READ_ADDRESS, reg);
  	if (_status != 0){goto error;}
@@ -135,17 +135,17 @@ uint16_t cin_ctl_read(struct cin_port* cp, uint16_t reg) {
                             	(socklen_t*)&cp->slen);
  	if(n != sizeof(buf)) {
  		if(n == 0)
-    	perror(" CIN has shutdown control port connection");
-   	else if(n < 0) {
-     	perror(" CIN control port - recvfrom( ) failed!!");
-   }
-    else {
-    	perror(" CIN control port - !!");
-    }
-    return -1;
+    			perror(" CIN has shutdown control port connection");
+   		else if(n < 0) {
+     			perror(" CIN control port - recvfrom( ) failed!!");
+   		}
+    		else {
+    			perror(" CIN control port - !!");
+    		}	
+    		return -1;
  	}
 
-  /* reset socket timeout to 0.1s default */
+  	/* reset socket timeout to 0.1s default */
  	cp->tv.tv_sec = 0;
  	cp->tv.tv_usec = 100000;
  	cin_set_sock_timeout(cp);
@@ -153,9 +153,9 @@ uint16_t cin_ctl_read(struct cin_port* cp, uint16_t reg) {
 
  	return (uint16_t)(buf);
     
-  error:{	
-  	perror("Read error\n");
-  	return -1;
+  	error:{	
+  		perror("Read error\n");
+  		return -1;
 	}	
 }
 
@@ -266,7 +266,7 @@ int cin_load_config(struct cin_port* cp,char *filename){
 int cin_load_firmware(struct cin_port* cp,struct cin_port* dcp,char *filename){
 	
 	uint32_t num_e;
-  int _status; 
+  	int _status; 
 	char buffer[128];     
 	
 	FILE *file= fopen(filename, "rb");
