@@ -568,7 +568,7 @@ void *cin_data_assembler_thread(void *args){
     skipped = (this_packet + this_packet_msb) - (last_packet + last_packet_msb + 1);
     if(skipped){
       thread_data.dropped_packets += skipped;
-      // YF DEBUG_PRINT("Skipped %d packets from frame %d\n", skipped, this_frame);
+      DEBUG_PRINT("Skipped %d packets from frame %d\n", skipped, this_frame);
     }
 
     /* Do some bounds checking */
