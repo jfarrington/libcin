@@ -122,6 +122,7 @@ struct cin_data_stats {
 };
 
 /* ---------------------------------------------------------------------
+ * 
  * CIN Control Routines
  *
  * ---------------------------------------------------------------------
@@ -204,8 +205,13 @@ uint16_t cin_get_trigger_status (struct cin_port* cp);
 
 int cin_set_trigger_mode(struct cin_port* cp,int val);
 /*
+<<<<<<< HEAD
  * Input:val= {0-Stop Triggers, set Number of exposures = 1, \
  * 1-Continuous Trigger, set Number of exposures = 0}
+=======
+ * Input:val = 0 - Single Trigger Mode 
+ *       val = 1 - Continuous Trigger Mode 
+>>>>>>> 28df65c23cd772f60e44cbec2b90a0d1abcb56c0
  */
 
 int cin_set_exposure_time(struct cin_port* cp,float e_time);  
@@ -223,6 +229,17 @@ int cin_set_cycle_time(struct cin_port* cp,float c_time);
  * Input:c_time (ms)		 
  */    	//TODO:-Malformed packet when MSB=0x0000	
 
+int cin_trigger_start(struct cin_port* cp);
+/* 
+ * Start triggers.   Looks at current mode (single or continuous)
+ * to determine which registers to set
+ */
+ 
+int cin_trigger_stop(struct cin_port* cp);
+/*
+ * Stops triggers
+ */
+ 
 /*------------------------
  * Frame Acquistion
  *------------------------*/
