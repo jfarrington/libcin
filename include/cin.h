@@ -205,13 +205,8 @@ uint16_t cin_get_trigger_status (struct cin_port* cp);
 
 int cin_set_trigger_mode(struct cin_port* cp,int val);
 /*
-<<<<<<< HEAD
- * Input:val= {0-Stop Triggers, set Number of exposures = 1, \
- * 1-Continuous Trigger, set Number of exposures = 0}
-=======
  * Input:val = 0 - Single Trigger Mode 
  *       val = 1 - Continuous Trigger Mode 
->>>>>>> 28df65c23cd772f60e44cbec2b90a0d1abcb56c0
  */
 
 int cin_set_exposure_time(struct cin_port* cp,float e_time);  
