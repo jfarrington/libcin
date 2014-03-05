@@ -226,7 +226,7 @@ int cin_on(struct cin_port* cp){
 
    int _status;
 
-   INFO("Powering ON CIN Board ........\n");
+   INFO("  Powering ON CIN Board ........\n");
 
    _status=cin_ctl_write(cp,REG_PS_ENABLE, 0x000f);
    if (_status != 0)
@@ -248,7 +248,7 @@ int cin_off(struct cin_port* cp) {
 
    int _status;
      
-   INFO("Powering OFF CIN Board ........\n");
+   INFO("  Powering OFF CIN Board ........\n");
    _status=cin_ctl_write(cp,REG_PS_ENABLE, 0x0000);
    if (_status != 0)
       {goto error;}
@@ -267,7 +267,7 @@ int cin_fp_on(struct cin_port* cp){
 
    int _status;
    
-   INFO("Powering ON CIN Front Panel Boards ........\n");
+   INFO("  Powering ON CIN Front Panel Boards ........\n");
    _status=cin_ctl_write(cp,REG_PS_ENABLE, 0x003f);
    if (_status != 0)
       {goto error;}
@@ -285,7 +285,7 @@ int cin_fp_off(struct cin_port* cp){
 
    int _status;
    
-   INFO("Powering OFF CIN Front Panel Boards ........\n");
+   INFO("  Powering OFF CIN Front Panel Boards ........\n");
    _status=cin_ctl_write(cp,REG_PS_ENABLE, 0x001f);
    if (_status != 0)
       {goto error;}
@@ -309,7 +309,7 @@ int cin_load_config(struct cin_port* cp,char *filename){
 
    FILE *file = fopen ( filename, "r" );
    if (file != NULL) {  
-      fprintf(stdout,"Loading CIN configuration %s ........\n",filename);
+      fprintf(stdout,"  Loading CIN configuration %s ........\n",filename);
 
       /* Read a line an filter out comments */     
       while(fgets(_line,sizeof _line,file)!= NULL){ 
@@ -350,7 +350,7 @@ int cin_load_firmware(struct cin_port* cp,struct cin_port* dcp,char *filename){
 
    if (file != NULL) {              
                
-      fprintf(stdout,"Loading CIN FPGA firmware %s ........\n",filename);
+      fprintf(stdout,"  Loading CIN FPGA firmware %s ........\n",filename);
 
       _status=cin_ctl_write(cp,REG_COMMAND,CMD_PROGRAM_FRAME); 
       if (_status != 0){goto error;}   
@@ -614,8 +614,8 @@ int cin_set_fclk(struct cin_port* cp,uint16_t clkfreq){
    }
       
    else{
-      perror("Invalid FCLK Frequency!");
-      perror("Currently only 125MHz, 180MHz, 200MHz and 250MHz are supported\n");
+      perror("  Invalid FCLK Frequency!");
+      perror("  Currently only 125MHz, 180MHz, 200MHz and 250MHz are supported\n");
       _status = (-1);
       goto error;      
    }
@@ -776,41 +776,42 @@ int cin_get_power_status(struct cin_port* cp) {
    double _current, _voltage;
    uint16_t _val = cin_ctl_read(cp, REG_PS_ENABLE);
       
-   INFO("****  CIN Power Monitor  ****\n");
+   INFO("****  CIN Power Monitor  ****\n\n");
    if(_val & 0x0001) {
       /* ADC == LT4151 */
       _val = cin_ctl_read(cp, REG_VMON_ADC1_CH1);
       _voltage = 0.025*_val;
       _val = cin_ctl_read(cp, REG_IMON_ADC1_CH0);
       _current = 0.00002*_val/0.003;
-      fprintf(stdout,"V12P_BUS Power  : %0.2fV @ %0.2fA\n\n", _voltage, _current);
+      fprintf(stdout,"  V12P_BUS Power  : %0.2fV @ %0.2fA\n\n", _voltage, _current);
 
       /* ADC == LT2418 */
       calcVIStatus(cp, REG_VMON_ADC0_CH5, REG_IMON_ADC0_CH5,
-                0.00015258, "V3P3_MGMT Power  :");
+                0.00015258, "  V3P3_MGMT Power  :");
       calcVIStatus(cp, REG_VMON_ADC0_CH7, REG_IMON_ADC0_CH7,
-                0.00015258, "V2P5_MGMT Power  :");
+                0.00015258, "  V2P5_MGMT Power  :");
       calcVIStatus(cp, REG_VMON_ADC0_CH2, REG_IMON_ADC0_CH2,
-                0.00007629, "V1P2_MGMT Power  :");
+                0.00007629, "  V1P2_MGMT Power  :");
       calcVIStatus(cp, REG_VMON_ADC0_CH3, REG_IMON_ADC0_CH3,
-                0.00007629, "V1P0_ENET Power  :");
+                0.00007629, "  V1P0_ENET Power  :");
       fprintf(stdout,"\n");
       calcVIStatus(cp, REG_VMON_ADC0_CH4, REG_IMON_ADC0_CH4,
-                0.00015258, "V3P3_S3E Power   :");
+                0.00015258, "  V3P3_S3E Power   :");
       calcVIStatus(cp, REG_VMON_ADC0_CH8, REG_IMON_ADC0_CH8,
-                0.00015258, "V3P3_GEN Power   :");
+                0.00015258, "  V3P3_GEN Power   :");
       calcVIStatus(cp, REG_VMON_ADC0_CH9, REG_IMON_ADC0_CH9,
-                0.00015258, "V2P5_GEN Power   :");
+                0.00015258, "  V2P5_GEN Power   :");
       fprintf(stdout,"\n");
       calcVIStatus(cp, REG_VMON_ADC0_CHE, REG_IMON_ADC0_CHE,
-                0.00007629, "V0P9_V6 Power    :");
+                0.00007629, "  V0P9_V6 Power    :");
       calcVIStatus(cp, REG_VMON_ADC0_CHB, REG_IMON_ADC0_CHB,
-                0.00007629, "V1P0_V6 Power    :");
+                0.00007629, "  V1P0_V6 Power    :");
       calcVIStatus(cp, REG_VMON_ADC0_CHD, REG_IMON_ADC0_CHD,
-                0.00015258, "V2P5_V6 Power    :");
+                0.00015258, "  V2P5_V6 Power    :");
       fprintf(stdout,"\n");
       calcVIStatus(cp, REG_VMON_ADC0_CHF, REG_IMON_ADC0_CHF,
-                0.00030516, "V_FP Power       :");
+                0.00030516, "  V_FP Power       :");
+      fprintf(stdout,"\n");
    }
    else {
       fprintf(stdout,"  12V Power Supply is OFF\n");
@@ -827,13 +828,13 @@ int cin_set_bias(struct cin_port* cp,int val){
       _status=cin_ctl_write(cp,REG_BIASCONFIGREGISTER0_REG, 0x0001);
       if (_status != 0)
          {goto error;}
-      INFO("Bias ON\n");
+      INFO("  Bias ON\n");
    }
    else if (val==0){
       _status=cin_ctl_write(cp,REG_BIASCONFIGREGISTER0_REG, 0x0000);
       if (_status != 0)
          {goto error;}
-      INFO("Bias OFF\n");
+      INFO("  Bias OFF\n");
    }
    else{
       perror("Illegal Bias state: Only 0 or 1 allowed\n");
@@ -854,16 +855,16 @@ int cin_set_clocks(struct cin_port* cp,int val){
       _status=cin_ctl_write(cp,REG_CLOCKCONFIGREGISTER0_REG, 0x0001);
       if (_status != 0)
          {goto error;}
-      INFO("Clocks ON\n");
+      INFO("  Clocks ON\n");
    }
    else if (val==0){
       _status=cin_ctl_write(cp,REG_CLOCKCONFIGREGISTER0_REG, 0x0000);
       if (_status != 0)
          {goto error;}
-      INFO("Clocks OFF\n");
+      INFO("  Clocks OFF\n");
    }
    else{
-      perror("Illegal Clocks state: Only 0 or 1 allowed\n");
+      perror("  Illegal Clocks state: Only 0 or 1 allowed\n");
       _status= -1;
       goto error;
    }
@@ -881,28 +882,28 @@ int cin_set_trigger(struct cin_port* cp,int val){
       _status=cin_ctl_write(cp,REG_TRIGGERMASK_REG, 0x0000);
       if (_status != 0)
          {goto error;}
-      INFO("Trigger set to Internal\n");
+      INFO("  Trigger set to Internal\n");
    }
    else if (val==1){
       _status=cin_ctl_write(cp,REG_TRIGGERMASK_REG, 0x0001);
       if (_status != 0)
          {goto error;}
-      INFO("Trigger set to External 1\n");
+      INFO("  Trigger set to External 1\n");
    }
    else if (val==2){
       _status=cin_ctl_write(cp,REG_TRIGGERMASK_REG, 0x0002);
       if (_status != 0)
          {goto error;}
-      INFO("Trigger set to External 2\n");
+      INFO("  Trigger set to External 2\n");
    }
    else if (val==3){
       _status=cin_ctl_write(cp,REG_TRIGGERMASK_REG, 0x0003);
       if (_status != 0)
          {goto error;}
-      INFO("Trigger set to External (1 or 2)\n");
+      INFO("  Trigger set to External (1 or 2)\n");
    }
    else{
-      perror("Illegal Trigger state: Only values 0 to 3 allowed\n");
+      perror("  Illegal Trigger state: Only values 0 to 3 allowed\n");
       _status= -1;
       goto error;
    }
@@ -921,22 +922,22 @@ uint16_t cin_get_trigger_status (struct cin_port* cp){
    
    if (_val == 0x0000){
       _state=0;
-      INFO("Trigger status is Internal\n");
+      INFO("  Trigger status is Internal\n");
    }
    else if (_val == 0x0001){
       _state=1;
-      INFO("Trigger status is External 1\n");
+      INFO("  Trigger status is External 1\n");
    }
    else if (_val == 0x0002){
       _state=2;   
-      INFO("Trigger status is External 2\n");
+      INFO("  Trigger status is External 2\n");
    }
    else if (_val == 0x0003){
       _state=3;
-      INFO("Trigger status is External (1 or 2)\n");
+      INFO("  Trigger status is External (1 or 2)\n");
    }
    else{
-      perror("Unknown Trigger status\n");
+      perror("  Unknown Trigger status\n");
       goto error; 
    }
 
@@ -1050,7 +1051,7 @@ int cin_set_exposure_time(struct cin_port* cp,float ftime){
    uint32_t _time, _msbval,_lsbval;
    float _fraction;
 
-   fprintf(stdout,"Exposure Time :%f ms\n", ftime);   //DEBUG
+   fprintf(stdout,"  Exposure Time :%f ms\n", ftime);   //DEBUG
    ftime=ftime*100;
    _time=(uint32_t)ftime;  //Extract integer from decimal
    _fraction=ftime-_time;  //Extract fraction from decimal
@@ -1084,7 +1085,7 @@ int cin_set_trigger_delay(struct cin_port* cp,float ftime){
    uint32_t _time, _msbval,_lsbval;
    float _fraction;
 
-   fprintf(stdout,"Trigger Delay Time:%f us\n", ftime);    //DEBUG
+   fprintf(stdout,"  Trigger Delay Time:%f us\n", ftime);    //DEBUG
    _time=(uint32_t)ftime;                          //extract integer from decimal
    _fraction=ftime-_time;                       //extract fraction from decimal
    //fprintf(stdout,"Fraction    :%f\n",_fraction);         //DEBUG
@@ -1119,7 +1120,7 @@ int cin_set_cycle_time(struct cin_port* cp,float ftime){
    uint32_t _time, _msbval,_lsbval;
    float _fraction;
                                        
-   fprintf(stdout,"Cycle Time:%f ms\n", ftime);   //DEBUG
+   fprintf(stdout,"  Cycle Time:%f ms\n", ftime);   //DEBUG
    _time=(uint32_t)ftime;                          //extract integer from decimal
    _fraction=ftime-_time;                       //extract fraction from decimal
    //fprintf(stdout,"Fraction    :%f\n",_fraction);         //DEBUG
@@ -1156,7 +1157,7 @@ int cin_set_frame_count_reset(struct cin_port* cp){
    if (_status != 0)
       {goto error;}
          
-   INFO("Frame count set to 0\n");
+   INFO("  Frame count set to 0\n");
    return _status;
 
 error:
@@ -1167,7 +1168,7 @@ error:
 int cin_test_cfg_leds(struct cin_port* cp){
 /* Test Front Panel LEDs */
 
-   fprintf(stdout,"\nFlashing CFG FP LEDs  ............\n");
+   fprintf(stdout,"  \nFlashing CFG FP LEDs  ............\n");
    cin_ctl_write(cp, REG_SANDBOX_REG00, 0xAAAA);
    usleep(999999);
    cin_ctl_write(cp, REG_SANDBOX_REG00, 0x5555);
