@@ -38,21 +38,24 @@ int main(){
 	cin_fp_on(&cp[0]);
 	sleep(5);
 	
-	cin_get_cfg_fpga_status(&cp[0]);
-	sleep(1);
-
 	cin_load_firmware(&cp[0],&cp[1],cin_fpga_config);	
 	sleep(5);
 
 	cin_ctl_write(&cp[0],0x8013,0x057F);
 	usleep(1000);
+	
 	cin_ctl_write(&cp[0],0x8014,0x0A17);
 	usleep(1000);
+	
 	ret_fpga=cin_get_cfg_fpga_status(&cp[0]);
 	sleep(1);
 
 	ret_fclk=cin_get_fclk_status(&cp[0]);			
 	sleep(1);
+
+	cin_get_power_status(&cp[0]);
+	sleep(1);
+
 /************************* FCCD Configuration **************************/	
 
 	cin_load_config(&cp[0],cin_waveform_config);		//Load FCCD clock configuration
