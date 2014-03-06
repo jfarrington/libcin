@@ -385,7 +385,7 @@ int cin_load_firmware(struct cin_port* cp,struct cin_port* dcp,char *filename){
 error:
    return _status;
 }
-
+/*
 static int dco_freeze (struct cin_port* cp){
    
    int _status;
@@ -466,9 +466,10 @@ static int fclk_write(struct cin_port* cp, uint16_t reg,uint16_t val){
 error:
    return _status;
 }
-
+*/
 /*TODO:-Check that clock is properly set*/
 // YF hardcoded addresses :-(
+/*
 int cin_set_fclk(struct cin_port* cp,uint16_t clkfreq){
    int _status;
 
@@ -624,8 +625,44 @@ int cin_set_fclk(struct cin_port* cp,uint16_t clkfreq){
 error:
    return  _status;
 }
+*/
+
+int cin_set_fclk(struct cin_port* cp,uint16_t clkfreq){
+
+   int _status;
+   
+   fprintf(stdout,"\n****Set CIN FCLK to %uMHz****\n",clkfreq);
+   
+   if (clkfreq == 125){
+      _status=cin_ctl_write(cp,REG_FCLK_I2C_DATA_WR,0xB000);
+      if (_status != 0) {goto error;}
+   } 
+ 
+   else if (clkfreq == 200){
+      _status=cin_ctl_write(cp,REG_FCLK_I2C_DATA_WR,0x7000);
+      if (_status != 0) {goto error;}
+   }
+
+   else if (clkfreq == 250){
+      _status=cin_ctl_write(cp,REG_FCLK_I2C_DATA_WR,0x3000);
+      if (_status != 0) {goto error;}
+   }      
+
+   else{
+      perror("  Invalid FCLK Frequency!");
+      perror("  Currently only 125MHz, 200MHz and 250MHz are supported\n");
+      _status = (-1);
+      goto error; 
+   }
+   return _status;
+      
+error:
+      return  _status;
+}
+
 
 /*TODO:-Verify*/
+/*
 int cin_get_fclk_status(struct cin_port* cp){ 
 
    uint16_t _val1,_val2;
@@ -664,7 +701,32 @@ int cin_get_fclk_status(struct cin_port* cp){
       return -1;
    }  
 }
-      
+*/
+
+int cin_get_fclk_status(struct cin_port* cp){ 
+
+   uint16_t _val;
+
+   _val= cin_ctl_read(cp,REG_FCLK_I2C_DATA_WR);
+
+   if((_val & 0xB000)==0xB000){
+      INFO("  FCLK Frequency = 125 MHz\n\n");
+      return 0;
+   }   
+   else if((_val & 0x7000)==0x7000){
+      INFO("  FCLK Frequency = 200 MHz\n\n");
+      return 0;		     
+   }
+   else if((_val & 0x7000)==0x3000){
+      INFO("  FCLK Frequency = 250 MHz\n\n");
+      return 0;
+   }
+   else{
+      perror("  Unknown FCLK Frequency\n\n"); 
+      return -1;
+   }  
+}  
+
 int cin_get_cfg_fpga_status(struct cin_port* cp){
       
    uint16_t _val;
