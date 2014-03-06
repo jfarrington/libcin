@@ -41,12 +41,16 @@ int main(){
 	cin_load_firmware(&cp[0],&cp[1],cin_fpga_config);	
 	sleep(5);
 
+	// Set CIN DATA IP address to 10.23.5.127 
+	//0x057F= 5.127
+	//0x0A17= 10.23
+
 	cin_ctl_write(&cp[0],0x8013,0x057F);
 	usleep(1000);
 	
 	cin_ctl_write(&cp[0],0x8014,0x0A17);
 	usleep(1000);
-	
+
 	ret_fpga=cin_get_cfg_fpga_status(&cp[0]);
 	sleep(1);
 
