@@ -151,7 +151,7 @@ int main(int argc, char *argv[]){
 		\n cin_fp_off\
 		\n cin_load_config\
 		\n cin_load_firmware\
-		\n cin_set_fclk (uint16_t clkfreq) ;clkfreq={125, 180, 200 and 250}(MHz)\
+		\n cin_set_fclk (uint16_t clkfreq) ;clkfreq={125, 200 and 250}(MHz)\
 		\n cin_get_fclk_status\
 		\n cin_get_cfg_fpga_status\
 		\n cin_get_power_status\

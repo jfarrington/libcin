@@ -165,7 +165,7 @@ int cin_load_config(struct cin_port* cp,char *filename);
 int cin_load_firmware(struct cin_port* cp,struct cin_port* dcp, char *filename);				
 int cin_set_fclk(struct cin_port* cp,uint16_t clkfreq); 
 /*
- * Input:clkfreq={125, 180, 200, 250}(MHz)
+ * Input:clkfreq={125, 200, 250}(MHz)
  */	//TODO:-Check that clock is properlly set
 
 int cin_get_fclk_status(struct cin_port* cp); 
