@@ -1125,13 +1125,14 @@ int cin_trigger_stop(struct cin_port* cp)
 //
 // Set Number of exposures
 //      
+/*
 int cin_set_number_exposures(struct cin_port* cp, int  numExp)
 {
    int _status;
    _status=cin_ctl_write(cp,REG_NUMBEROFEXPOSURE_REG, numExp);
    return _status;
 }
-
+*/
 //TODO:Malformed packet when MSB=0x0000*/
 int cin_set_exposure_time(struct cin_port* cp,float ftime){  
 
