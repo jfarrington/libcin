@@ -783,39 +783,42 @@ int cin_set_trigger_mode(struct cin_port* cp,int val){
       perror("Write error: cin_set_trigger_mode\n");
       return (-1);
 }
-
-// Requires m_TriggerMode to be defined.
-// Must call cin_set_trigger_mode before calling this function.   
+ 
 int cin_trigger_start(struct cin_port* cp)
 {
    int _status;
 
-   if (m_TriggerMode == 1)    // Single Mode
-   {
+   if (m_TriggerMode == 1){    // Single Mode
       _status=cin_ctl_write(cp,REG_FRM_COMMAND, 0x0100);
+      if (_status != 0) {goto error;}
    }
 
-   // Continuous Mode or N image mode
-   else
-   {
+   else{                  // Continuous or Multiple mode
       _status=cin_ctl_write(cp,REG_FRM_COMMAND, 0x0100);
+      if (_status != 0) {goto error;}
       _status = setFocusBit(cp);
-   }
+      if (_status != 0) {goto error;}
+   }  
    return _status;
- }
-      
 
-//
-// Stop the triggers
-//      
+   error:
+      perror("Write error: cin_trigger_start\n");
+      return (-1);
+}
+      
 int cin_trigger_stop(struct cin_port* cp)
 {
    int _status;
    _status = clearFocusBit(cp);
+   if (_status != 0) {goto error;}
+   
    return _status;
+
+   error:
+      perror("Write error: cin_trigger_start\n");
+      return (-1);
 }
 
-//TODO:Malformed packet when MSB=0x0000*/
 int cin_set_exposure_time(struct cin_port* cp,float ftime){
 
    int _status;
@@ -846,7 +849,6 @@ error:
    return _status;
 }
 
-/*TODO:-Malformed packet when MSB=0x0000*/
 int cin_set_trigger_delay(struct cin_port* cp,float ftime){  
 
    int _status;
@@ -877,7 +879,6 @@ error:
    return _status;
 }
 
-/*TODO:-Malformed packet when MSB=0x0000*/
 int cin_set_cycle_time(struct cin_port* cp,float ftime){
 
    int _status;
