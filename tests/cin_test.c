@@ -38,9 +38,7 @@ int main(int argc, char *argv[]){
 	}
 	
 	else if (strcmp(argv[1],"cin_off") == 0){
-		int _status;
-		_status=cin_off(&cp[0]);
-		printf("%u",_status);
+		cin_off(&cp[0]);
 	}
 
 	else if (strcmp(argv[1],"cin_fp_on") == 0){
@@ -124,6 +122,15 @@ int main(int argc, char *argv[]){
 		sscanf(argv[2], "%f", &val); 
 		cin_set_cycle_time(&cp[0],val);
 	}
+
+	else if (strcmp(argv[1],"cin_trigger_start") == 0){
+                cin_trigger_start(&cp[0]);
+	}
+
+        else if (strcmp(argv[1],"cin_trigger_stop") == 0){
+                cin_trigger_stop(&cp[0]);
+        }
+
 	else if (strcmp(argv[1],"cin_set_frame_count_reset") == 0){
 		cin_set_frame_count_reset(&cp[0]);	
 	}	
@@ -135,7 +142,7 @@ int main(int argc, char *argv[]){
 	else if (strcmp(argv[1],"-h") == 0){
 		goto options;
 	}
-	
+
 	else{
 		printf("Invalid function!\n\n");
 		goto options;
@@ -163,8 +170,9 @@ int main(int argc, char *argv[]){
 		\n cin_set_exposure_time (float e_time)   ;(ms)\
 		\n cin_set_trigger_delay (float d_time)  	;(us)\
 		\n cin_set_cycle_time (float c_time)      ;(ms)\
+		\n cin_trigger_start\
+		\n cin_trigger_stop\
 		\n cin_set_frame_count_reset\
 		\n cin_test_cfg_leds\n\n");
 	}
-			
 }
