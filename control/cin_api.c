@@ -717,7 +717,7 @@ int cin_get_fclk_status(struct cin_port* cp){
       INFO("  FCLK Frequency = 200 MHz\n\n");
       return 0;		     
    }
-   else if((_val & 0x7000)==0x3000){
+   else if((_val & 0x3000)==0x3000){
       INFO("  FCLK Frequency = 250 MHz\n\n");
       return 0;
    }
@@ -1035,63 +1035,81 @@ int cin_set_trigger_mode(struct cin_port* cp,int val){
 
    int _status;
 
-   if (val == 0)
+   if (val == 1)
    {
-      m_TriggerMode = 0;   // 0 = Single
+      m_TriggerMode = 1;   // 1 = Single
       // From setTriggerModeSingle.py
       // Clear the Focus bit
       _status = clearFocusBit(cp);
-      if (_status != 0) 
+      if (_status != 0)
          {goto error;}
 
       _status=cin_ctl_write(cp,REG_NUMBEROFEXPOSURE_REG, 0x0001);
-      if (_status != 0) 
+      if (_status != 0)
          {goto error;}
    }
 
-   else
-   {    
-      m_TriggerMode = 1;   // 1 = Continuous
+   else if (val == 0)
+   {
+      m_TriggerMode = 0;   // 0 = Continuous
       // From setContTriggers.py
       _status = clearFocusBit(cp);
-      if (_status != 0) 
+      if (_status != 0)
          {goto error;}
-                                                                                          
+
       _status=cin_ctl_write(cp,REG_NUMBEROFEXPOSURE_REG, 0x0000);
-      if (_status != 0) 
-         {goto error;}  
+      if (_status != 0)
+         {goto error;}
 
       // YF Do not set Focus Bit here.  Set when call cin_trigger_start().
      // _status = setFocusBit(cp);
      // if (_status != 0) 
      //    {goto error;}
-   }     
-   return (0); 
-   
+   }
+
+   else if (val > 1)
+   {
+      m_TriggerMode = 2;   // 2 = N images
+      // From setContTriggers.py
+      _status = clearFocusBit(cp);
+      if (_status != 0)
+         {goto error;}
+
+      _status=cin_ctl_write(cp,REG_NUMBEROFEXPOSURE_REG, val);
+      if (_status != 0)
+         {goto error;}
+
+   }
+   else
+   {
+      goto error;
+   }
+   return (0);
+
    error:
       perror("Write error: cin_set_trigger_mode\n");
       return (-1);
-}        
-
+}
 
 // Requires m_TriggerMode to be defined.
 // Must call cin_set_trigger_mode before calling this function.   
 int cin_trigger_start(struct cin_port* cp)
 {
    int _status;
-   
-   if (m_TriggerMode == 0)    // Single Mode
+
+   if (m_TriggerMode == 1)    // Single Mode
    {
       _status=cin_ctl_write(cp,REG_FRM_COMMAND, 0x0100);
    }
-   
-   // Continuous Mode
+
+   // Continuous Mode or N image mode
    else
    {
+      _status=cin_ctl_write(cp,REG_FRM_COMMAND, 0x0100);
       _status = setFocusBit(cp);
    }
    return _status;
- }     
+ }
       
 
 //
@@ -1104,7 +1122,15 @@ int cin_trigger_stop(struct cin_port* cp)
    return _status;
 }
 
-
+//
+// Set Number of exposures
+//      
+int cin_set_number_exposures(struct cin_port* cp, int  numExp)
+{
+   int _status;
+   _status=cin_ctl_write(cp,REG_NUMBEROFEXPOSURE_REG, numExp);
+   return _status;
+}
 
 //TODO:Malformed packet when MSB=0x0000*/
 int cin_set_exposure_time(struct cin_port* cp,float ftime){  
