@@ -194,7 +194,7 @@ int cin_set_clocks(struct cin_port* cp,int val);
 
 int cin_set_trigger(struct cin_port* cp,int val);
 /*
- * Input:val={0-Internal,1-External1,2-External2,3-External 1 or 2}
+ * Input:val={0-Internal, 1-External1, 2-External2, 3-External 1 or 2}
  */
 
 uint16_t cin_get_trigger_status (struct cin_port* cp);
@@ -209,18 +209,18 @@ int cin_set_trigger_mode(struct cin_port* cp,int val);
 
 int cin_set_exposure_time(struct cin_port* cp,float e_time);
 /*
- * Input:e_time (ms)
- */	//TODO:-Malformed packet when MSB=0x0000
+ * Input:e_time (s)
+ */	
 
 int cin_set_trigger_delay(struct cin_port* cp,float t_time);
 /*
  * Input:t_time (us)
- */	//TODO:-Malformed packet when MSB=0x0000
+ */
 
 int cin_set_cycle_time(struct cin_port* cp,float c_time);
 /*
- * Input:c_time (ms)
- */    	//TODO:-Malformed packet when MSB=0x0000
+ * Input:c_time (s)
+ */    
 
 int cin_trigger_start(struct cin_port* cp);
 /*

@@ -825,13 +825,15 @@ int cin_set_exposure_time(struct cin_port* cp,float ftime){
    uint32_t _time, _msbval,_lsbval;
    float _fraction;
 
-   fprintf(stdout,"  Exposure Time :%f ms\n", ftime);
-   ftime=ftime*100;
+   fprintf(stdout,"  Exposure Time :%f s\n", ftime);
+   ftime=ftime*1000;        //Convert to ms
+ 
+   ftime=ftime*100;         
    _time=(uint32_t)ftime;  //Extract integer from decimal
    _fraction=ftime-_time;  //Extract fraction from decimal
 
    if(_fraction!=0){       //Check that there is no fractional value
-      perror("ERROR:Smallest precision that can be specified is .01 ms\n");
+      perror("ERROR:Smallest precision that can be specified is .00001 s\n");
       _status= -1;
    }
    else{ 
@@ -885,15 +887,17 @@ int cin_set_cycle_time(struct cin_port* cp,float ftime){
    uint32_t _time, _msbval,_lsbval;
    float _fraction;
                                        
-   fprintf(stdout,"  Cycle Time:%f ms\n", ftime);
+   fprintf(stdout,"  Cycle Time:%f s\n", ftime);
+   ftime=ftime*1000;         //Convert to ms
+
    _time=(uint32_t)ftime;    //Extract integer from decimal
    _fraction=ftime-_time;    //Extract fraction from decimal
 
    if(_fraction!=0){         //Check that there is no fractional value
-      perror("ERROR:Smallest precision that can be specified is 1 ms\n");
+      perror("ERROR:Smallest precision that can be specified is .001 s\n");
       _status= -1;
       goto error;
-   }  
+   }   
    else{ 
       _msbval=(uint32_t)(_time>>16);
       _lsbval=(uint32_t)(_time & 0xffff);
