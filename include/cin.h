@@ -204,7 +204,7 @@ uint16_t cin_get_trigger_status (struct cin_port* cp);
 
 int cin_set_trigger_mode(struct cin_port* cp,int val);
 /*
- * Input:val={0-Single, 1-Continuous, 2-Multiple}
+ * Input:val={1-Single, 0-Continuous, N>1 Multiple}
  */
 
 int cin_set_exposure_time(struct cin_port* cp,float e_time);
